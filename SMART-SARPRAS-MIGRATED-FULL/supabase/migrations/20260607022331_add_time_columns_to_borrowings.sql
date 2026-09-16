@@ -1,0 +1,2 @@
+ALTER TABLE borrowings ADD COLUMN IF NOT EXISTS start_time time DEFAULT '08:00';
+ALTER TABLE borrowings ADD COLUMN IF NOT EXISTS end_time time DEFAULT '16:00';
