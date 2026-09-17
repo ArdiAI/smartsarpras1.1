@@ -17,7 +17,7 @@ for any manual SQL editing — all default roles become usable on first login.
 - Operator (level 50)     → inventory (CRUD), facilities (CRUD), announcements (CRUD), reports (read+manage), statistics:read, borrowings:read
 - Pembina (level 60)      → borrowings:read, borrowings:approve, borrowings:reject
 - Wakasek Kesiswaan (85)  → borrowings:read, borrowings:approve
-- Wakasek Sarpras (90)    → borrowings:read, borrowings:approve, borrowings:manage, statistics:read
+- Staff Sarpras (90)    → borrowings:read, borrowings:approve, borrowings:manage, statistics:read
 - PJ Fasilitas (30)       → borrowings:read, borrowings:approve, facilities:read
 - PJ Barang (30)          → borrowings:read, borrowings:approve, inventory:read
 - Viewer (10)             → all :read permissions
@@ -39,7 +39,7 @@ DECLARE
   r_operator uuid;
   r_pembina uuid;
   r_wakasiswaan uuid;
-  r_wakasarpras uuid;
+  r_staffsarpras uuid;
   r_pj_fasilitas uuid;
   r_pj_barang uuid;
   r_viewer uuid;
@@ -52,7 +52,7 @@ BEGIN
   SELECT id INTO r_operator       FROM roles WHERE name = 'Operator';
   SELECT id INTO r_pembina        FROM roles WHERE name = 'Pembina';
   SELECT id INTO r_wakasiswaan    FROM roles WHERE name = 'Wakasek Kesiswaan';
-  SELECT id INTO r_wakasarpras   FROM roles WHERE name = 'Wakasek Sarpras';
+  SELECT id INTO r_staffsarpras   FROM roles WHERE name = 'Staff Sarpras';
   SELECT id INTO r_pj_fasilitas   FROM roles WHERE name = 'Penanggung Jawab Fasilitas';
   SELECT id INTO r_pj_barang      FROM roles WHERE name = 'PJ Barang';
   SELECT id INTO r_viewer         FROM roles WHERE name = 'Viewer';
@@ -106,7 +106,7 @@ BEGIN
     ON CONFLICT (role_id, permission_id) DO NOTHING;
   END IF;
 
-  -- Wakasek Sarpras → borrowings:read, borrowings:approve, borrowings:manage, statistics:read
+  -- Staff Sarpras → borrowings:read, borrowings:approve, borrowings:manage, statistics:read
   IF r_wakasarpras IS NOT NULL THEN
     INSERT INTO role_permissions (role_id, permission_id)
     SELECT r_wakasarpras, p.id FROM permissions p

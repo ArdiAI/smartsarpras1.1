@@ -29,5 +29,5 @@ CREATE POLICY "delete_role_approver_emails" ON role_approver_emails
 INSERT INTO role_approver_emails (role_id, role_name, approver_email, approver_name)
 SELECT id, name, LOWER(REPLACE(name, ' ', '.')) || '@smkn1cimahi.sch.id', name
 FROM roles
-WHERE name IN ('Pembina', 'Wakasek Kesiswaan', 'Penanggung Jawab Fasilitas', 'Wakasek Sarpras', 'Kepala Bengkel')
+WHERE name IN ('Pembina', 'Wakasek Kesiswaan', 'Penanggung Jawab Fasilitas', 'Staff Sarpras', 'Kepala Bengkel')
 ON CONFLICT (role_id) DO NOTHING;

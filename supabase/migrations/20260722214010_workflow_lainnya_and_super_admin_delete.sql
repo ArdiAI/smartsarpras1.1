@@ -3,8 +3,8 @@
 
 ## Purpose
 1. Creates a new workflow template "Workflow Lainnya" for custom ("Lainnya") borrowing items.
-   Steps: User → Pembina → Wakasek Kesiswaan → Wakasek Sarpras (PJ Sarpras step).
-   After Wakasek Sarpras, the PJ Sarpras user gets special actions in the UI:
+   Steps: User → Pembina → Wakasek Kesiswaan → Staff Sarpras (PJ Sarpras step).
+   After Staff Sarpras, the PJ Sarpras user gets special actions in the UI:
    - Teruskan ke PJ Barang (select a PJ Barang user, forward to them)
    - Teruskan ke PJ Fasilitas (select a PJ Fasilitas user, forward to them)
    - Proses Langsung (skip to Kepala Sarpras / final approval)
@@ -18,7 +18,7 @@
 - `workflow_steps` rows:
   - Step 1: Pembina (role: Pembina)
   - Step 2: Wakasek Kesiswaan (role: Wakasek Kesiswaan)
-  - Step 3: Wakasek Sarpras (role: Wakasek Sarpras) — this is the "PJ Sarpras" decision step
+  - Step 3: Staff Sarpras (role: Staff Sarpras) — this is the "PJ Sarpras" decision step
 
 ## Security
 - `is_super_admin()` function checks admin_user_roles for "Super Admin" role.
@@ -29,7 +29,7 @@
 1. The "Workflow Lainnya" template is for items where inventory_id IS NULL AND facility_id IS NULL
    (custom "Lainnya" items entered by the user).
 2. Regular barang/fasilitas items continue using "Workflow Sarpras" (existing template).
-3. The Wakasek Sarpras step in this template is where the PJ Sarpras user makes routing decisions.
+3. The Staff Sarpras step in this template is where the PJ Sarpras user makes routing decisions.
 4. No existing data is modified or deleted.
 */
 
@@ -58,7 +58,7 @@ GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated;
 -- ── Workflow Lainnya template ────────────────────────────────
 -- Insert the template if it doesn't already exist
 INSERT INTO workflow_templates (id, name, description, is_active, created_at)
-SELECT gen_random_uuid(), 'Workflow Lainnya', 'Workflow untuk pengajuan barang/fasilitas kategori Lainnya (tidak terdaftar di inventaris). Setelah Wakasek Sarpras, PJ Sarpras dapat meneruskan ke PJ Barang, PJ Fasilitas, atau memproses langsung.', true, now()
+SELECT gen_random_uuid(), 'Workflow Lainnya', 'Workflow untuk pengajuan barang/fasilitas kategori Lainnya (tidak terdaftar di inventaris). Setelah Staff Sarpras, PJ Sarpras dapat meneruskan ke PJ Barang, PJ Fasilitas, atau memproses langsung.', true, now()
 WHERE NOT EXISTS (
   SELECT 1 FROM workflow_templates WHERE name = 'Workflow Lainnya'
 );

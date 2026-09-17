@@ -10,10 +10,10 @@ BEGIN
   SELECT id INTO v_lainnya_tpl_id FROM workflow_templates WHERE name = 'Workflow Lainnya';
   IF v_lainnya_tpl_id IS NULL THEN
     INSERT INTO workflow_templates (name, description, is_active)
-    VALUES ('Workflow Lainnya', 'Alur persetujuan dinamis: Pembina -> Wakasek Kesiswaan -> PJ Sarpras -> (PJ Barang/PJ Fasilitas) -> Wakasek Sarpras', true)
+    VALUES ('Workflow Lainnya', 'Alur persetujuan dinamis: Pembina -> Staff Kesiswaan -> PJ Sarpras -> (PJ Barang/PJ Fasilitas) -> Staff Sarpras', true)
     RETURNING id INTO v_lainnya_tpl_id;
   ELSE
-    UPDATE workflow_templates SET is_active = true, description = 'Alur persetujuan dinamis: Pembina -> Wakasek Kesiswaan -> PJ Sarpras -> (PJ Barang/PJ Fasilitas) -> Wakasek Sarpras', updated_at = now() WHERE id = v_lainnya_tpl_id;
+    UPDATE workflow_templates SET is_active = true, description = 'Alur persetujuan dinamis: Pembina -> Wakasek Kesiswaan -> PJ Sarpras -> (PJ Barang/PJ Fasilitas) -> Staff Sarpras', updated_at = now() WHERE id = v_lainnya_tpl_id;
   END IF;
 
   -- Replace all steps with the 5-step dynamic flow
@@ -25,7 +25,7 @@ BEGIN
     (v_lainnya_tpl_id, 3, '99da1595-971b-46b1-8041-bd012e8c59fb', 'Persetujuan PJ Sarpras', false),
     -- Step 4: dynamic approver (role_id NULL — assigned at runtime by PJ Sarpras)
     (v_lainnya_tpl_id, 4, NULL, 'Persetujuan PJ Barang / PJ Fasilitas', false),
-    (v_lainnya_tpl_id, 5, '137e85e7-3ce7-4b7e-bda8-d4b54e67c353', 'Persetujuan Wakasek Sarpras', false);
+    (v_lainnya_tpl_id, 5, '137e85e7-3ce7-4b7e-bda8-d4b54e67c353', 'Persetujuan Staff Sarpras', false);
 
   -- Deactivate the separate Barang/Fasilitas workflows (no longer needed)
   UPDATE workflow_templates SET is_active = false, updated_at = now() WHERE name IN ('Workflow Barang', 'Workflow Fasilitas');

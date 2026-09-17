@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Upload, Send, Check, X, AlertCircle, Clock, Search, Download, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Proposal, PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '../types';
-import { supabase } from '../lib/supabase';
+import { uploadFileToDrive } from '../lib/upload';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { cn } from '../utils/cn';
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:3001';
 
 export default function ProposalPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -35,20 +39,32 @@ export default function ProposalPage() {
   }, []);
 
   const fetchProposals = async () => {
-    const { data, error } = await supabase.from('proposals').select('*').order('created_at', { ascending: false });
-    if (error) console.error('Fetch proposals error:', error);
-    if (data) setProposals(data as Proposal[]);
-    setLoading(false);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals`);
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(
+          result?.message ?? 'Gagal memuat proposal'
+        );
+      }
+
+      setProposals((result.data ?? []) as Proposal[]);
+    } catch (error) {
+      console.error('Fetch proposals error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const uploadDocument = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `proposals/${fileName}`;
-    const { error } = await supabase.storage.from('borrowing-documents').upload(filePath, file);
-    if (error) return null;
-    const { data } = supabase.storage.from('borrowing-documents').getPublicUrl(filePath);
-    return data.publicUrl;
+    const uploaded = await uploadFileToDrive(
+      file,
+      `proposal-${Date.now()}-${file.name}`,
+      'surat_peminjaman'
+    );
+
+    return uploaded?.url ?? null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,15 +83,37 @@ export default function ProposalPage() {
       }
     }
 
-    const { error } = await supabase.from('proposals').insert([{
-      ...formData,
-      document_url: documentUrl,
-      document_name: documentName,
-      status: 'pending',
-    }]);
+    let submitErrorMessage = '';
 
-    if (error) {
-      setSubmitError(`Gagal mengirim: ${error.message}`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          document_url: documentUrl,
+          document_name: documentName,
+          status: 'pending',
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.ok) {
+        submitErrorMessage =
+          result?.message ?? 'Gagal mengirim proposal';
+      }
+    } catch (error) {
+      submitErrorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengirim proposal';
+    }
+
+    if (submitErrorMessage) {
+      setSubmitError(`Gagal mengirim: ${submitErrorMessage}`);
     } else {
       setSubmitSuccess(true);
       setFormData({

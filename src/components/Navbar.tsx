@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
-import { Home, Package, Building2, ClipboardList, CalendarDays, CalendarRange, History, Info, LogIn, LogOut, LayoutDashboard, Menu, X, Moon, Sun, ChevronDown, MessageSquare, MapPin } from 'lucide-react';
+import { Home, Package, Building2, FileText, CalendarDays, CalendarRange, Info, LogIn, LogOut, LayoutDashboard, Menu, X, Moon, Sun, ChevronDown, MessageSquare, MapPin } from 'lucide-react';
 import { brand } from '../brand/config';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,7 @@ const mainNav = [
   { to: '/', label: 'Beranda', icon: Home },
   { to: '/fasilitas', label: 'Fasilitas', icon: Building2 },
   { to: '/inventaris', label: 'Inventaris', icon: Package },
-  { to: '/pinjam', label: 'Pengajuan', icon: ClipboardList },
+  { to: '/laporan', label: 'Laporan', icon: FileText },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/aspirasi', label: 'Aspirasi', icon: MessageSquare },
 ];
@@ -20,7 +20,6 @@ const kavlingNav = [
 ];
 const otherNav = [
   { to: '/timeline', label: 'Timeline', icon: CalendarRange },
-  { to: '/history', label: 'Riwayat', icon: History },
   { to: '/tentang', label: 'Tentang', icon: Info },
 ];
 

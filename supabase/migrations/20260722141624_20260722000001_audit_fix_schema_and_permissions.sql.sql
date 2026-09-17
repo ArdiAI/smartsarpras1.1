@@ -90,7 +90,7 @@ WHERE r.name = 'Super Admin'
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r, permissions p
-WHERE r.name IN ('Wakasek Sarpras', 'Wakasek Kesiswaan', 'Admin', 'Operator', 'Pembina', 'Kepala Bengkel', 'PJ Barang', 'Penanggung Jawab Fasilitas')
+WHERE r.name IN ('Staff Sarpras', 'Wakasek Kesiswaan', 'Admin', 'Operator', 'Pembina', 'Kepala Bengkel', 'PJ Barang', 'Penanggung Jawab Fasilitas')
   AND p.module IN ('agenda', 'dashboard', 'timeline', 'history')
   AND p.action = 'read'
   AND NOT EXISTS (

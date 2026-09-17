@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { uploadFileToDrive } from '../../../lib/upload';
 import { showToast } from '../../../components/Toast';
 import { useAuth } from '../../../context/AuthContext';
 import { logActivity } from '../../../lib/auditLog';
@@ -7,7 +8,7 @@ import { cn } from '../../../utils/cn';
 import {
   Settings, Loader2, Save, Image as ImageIcon, Plus, Pencil, Trash2,
   X, ArrowUp, ArrowDown, Download, Database, Palette, Megaphone,
-  Building2, Info, ShieldCheck, Eye, Upload,
+  Building2, Info, ShieldCheck, Upload,
 } from 'lucide-react';
 
 /* ---------- types ---------- */
@@ -56,15 +57,89 @@ const TABS: { id: TabId; label: string; icon: typeof Settings }[] = [
 
 const BUCKET = 'facility-images';
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:3001';
+
+interface ApiResponse<T> {
+  ok: boolean;
+  data?: T;
+  message?: string;
+}
+
+async function getAccessToken() {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error(
+      'Sesi login tidak ditemukan. Silakan login kembali.'
+    );
+  }
+
+  return token;
+}
+
+async function adminApi<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const token = await getAccessToken();
+  const headers = new Headers(options.headers);
+
+  headers.set('Authorization', `Bearer ${token}`);
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}${path}`,
+    {
+      ...options,
+      headers,
+    }
+  );
+
+  const result =
+    (await response.json().catch(() => null)) as
+      | ApiResponse<T>
+      | null;
+
+  if (!response.ok || !result?.ok) {
+    throw new Error(
+      result?.message ??
+        `HTTP ${response.status}`
+    );
+  }
+
+  return result;
+}
+
 /* ---------- helpers ---------- */
 
 async function uploadImage(file: File, prefix: string): Promise<string | null> {
   try {
-    const path = `system-settings/${prefix}-${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`;
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
-    if (error) { showToast('Gagal upload: ' + error.message, 'error'); return null; }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    const uploaded = await uploadFileToDrive(
+      file,
+      `${prefix}-${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`,
+      'foto_pengumuman'
+    );
+
+    if (!uploaded?.url) {
+      showToast('Gagal upload gambar ke Google Drive', 'error');
+      return null;
+    }
+
+    return uploaded.url;
   } catch {
     showToast('Gagal upload gambar', 'error');
     return null;
@@ -92,14 +167,26 @@ export default function SystemSettingsPage() {
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
+
     try {
-      const { data, error } = await supabase.from('system_settings').select('key, value');
-      if (error) { showToast('Gagal memuat pengaturan', 'error'); return; }
+      const result = await adminApi<
+        { key: string; value: Record<string, unknown> }[]
+      >('/api/admin/system-settings');
+
       const map: SettingsMap = {};
-      (data ?? []).forEach((r: { key: string; value: Record<string, unknown> }) => { map[r.key] = r.value; });
+
+      (result.data ?? []).forEach((row) => {
+        map[row.key] = row.value;
+      });
+
       setSettings(map);
-    } catch {
-      showToast('Gagal memuat pengaturan', 'error');
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal memuat pengaturan',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -120,17 +207,31 @@ export default function SystemSettingsPage() {
 
   const saveSection = async (key: string, value: Record<string, unknown>, label: string) => {
     setSavingKey(key);
+
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .update({ value, updated_by: adminProfile?.id ?? null, updated_at: new Date().toISOString() })
-        .eq('key', key);
-      if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
+      await adminApi(
+        `/api/admin/system-settings/${encodeURIComponent(key)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ value }),
+        }
+      );
+
       showToast(`${label} berhasil disimpan`);
-      await auditLog('UPDATE', `${adminProfile?.name ?? 'Admin'} memperbarui ${label}`);
+
+      await auditLog(
+        'UPDATE',
+        `${adminProfile?.name ?? 'Admin'} memperbarui ${label}`
+      );
+
       await fetchSettings();
-    } catch {
-      showToast('Gagal menyimpan pengaturan', 'error');
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal menyimpan pengaturan',
+        'error'
+      );
     } finally {
       setSavingKey(null);
     }
@@ -213,7 +314,7 @@ export default function SystemSettingsPage() {
           />
         )}
         {activeTab === 'backup' && <BackupSection auditLog={auditLog} />}
-        {activeTab === 'audit' && <AuditSection data={settings['audit'] ?? {}} auditLog={auditLog} />}
+        {activeTab === 'audit' && <AuditSection data={settings['audit'] ?? {}} />}
       </div>
     </div>
   );
@@ -363,14 +464,23 @@ function AnnouncementsSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' 
 
   const fetch = async () => {
     setLoading(true);
+
     try {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('id, title, description, priority, status, published_at, created_at')
-        .order('created_at', { ascending: false });
-      if (error) { showToast('Gagal memuat pengumuman', 'error'); return; }
-      setItems((data ?? []) as unknown as Announcement[]);
-    } finally { setLoading(false); }
+      const result = await adminApi<Announcement[]>(
+        '/api/admin/system-settings/announcements/all'
+      );
+
+      setItems(result.data ?? []);
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal memuat pengumuman',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetch(); }, []);
@@ -387,45 +497,121 @@ function AnnouncementsSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' 
       description: form.description,
       priority: form.priority,
       status: form.status,
-      published_at: form.status === 'published' ? new Date().toISOString() : null,
     };
+
     try {
       if (editingId) {
-        const { error } = await supabase.from('announcements').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingId);
-        if (error) { showToast('Gagal memperbarui: ' + error.message, 'error'); return; }
+        await adminApi(
+          `/api/admin/system-settings/announcements/${encodeURIComponent(editingId)}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          }
+        );
+
         showToast('Pengumuman diperbarui');
-        await auditLog('UPDATE', `Memperbarui pengumuman "${form.title}"`);
+
+        await auditLog(
+          'UPDATE',
+          `Memperbarui pengumuman "${form.title}"`
+        );
       } else {
-        const { error } = await supabase.from('announcements').insert(payload);
-        if (error) { showToast('Gagal menambah: ' + error.message, 'error'); return; }
+        await adminApi(
+          '/api/admin/system-settings/announcements',
+          {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          }
+        );
+
         showToast('Pengumuman ditambahkan');
-        await auditLog('CREATE', `Menambah pengumuman "${form.title}"`);
+
+        await auditLog(
+          'CREATE',
+          `Menambah pengumuman "${form.title}"`
+        );
       }
+
       setModalOpen(false);
       await fetch();
-    } finally { setSubmitting(false); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal menyimpan pengumuman',
+        'error'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const togglePublish = async (a: Announcement) => {
-    const newStatus = a.status === 'published' ? 'draft' : 'published';
+    const newStatus =
+      a.status === 'published'
+        ? 'draft'
+        : 'published';
+
     try {
-      const { error } = await supabase.from('announcements').update({ status: newStatus, published_at: newStatus === 'published' ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq('id', a.id);
-      if (error) { showToast('Gagal mengubah status', 'error'); return; }
-      showToast(newStatus === 'published' ? 'Pengumuman dipublikasi' : 'Pengumuman di-unpublish');
-      await auditLog('UPDATE', `${newStatus === 'published' ? 'Publish' : 'Unpublish'} pengumuman "${a.title}"`);
+      await adminApi(
+        `/api/admin/system-settings/announcements/${encodeURIComponent(a.id)}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: newStatus,
+          }),
+        }
+      );
+
+      showToast(
+        newStatus === 'published'
+          ? 'Pengumuman dipublikasi'
+          : 'Pengumuman di-unpublish'
+      );
+
+      await auditLog(
+        'UPDATE',
+        `${newStatus === 'published' ? 'Publish' : 'Unpublish'} pengumuman "${a.title}"`
+      );
+
       await fetch();
-    } catch { showToast('Gagal mengubah status', 'error'); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengubah status',
+        'error'
+      );
+    }
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm('Yakin ingin menghapus pengumuman ini?')) return;
+
     try {
-      const { error } = await supabase.from('announcements').delete().eq('id', id);
-      if (error) { showToast('Gagal menghapus', 'error'); return; }
+      await adminApi(
+        `/api/admin/system-settings/announcements/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
       showToast('Pengumuman dihapus');
-      await auditLog('DELETE', `Menghapus pengumuman "${title}"`);
+
+      await auditLog(
+        'DELETE',
+        `Menghapus pengumuman "${title}"`
+      );
+
       await fetch();
-    } catch { showToast('Gagal menghapus', 'error'); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal menghapus',
+        'error'
+      );
+    }
   };
 
   const priorityLabels: Record<string, string> = { low: 'Rendah', normal: 'Normal', high: 'Tinggi', urgent: 'Mendesak' };
@@ -519,11 +705,23 @@ function BannersSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' | 'DEL
 
   const fetch = async () => {
     setLoading(true);
+
     try {
-      const { data, error } = await supabase.from('system_banners').select('*').order('sort_order', { ascending: true });
-      if (error) { showToast('Gagal memuat banner', 'error'); return; }
-      setBanners((data ?? []) as unknown as Banner[]);
-    } finally { setLoading(false); }
+      const result = await adminApi<Banner[]>(
+        '/api/admin/system-settings/banners/all'
+      );
+
+      setBanners(result.data ?? []);
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal memuat banner',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetch(); }, []);
@@ -538,49 +736,145 @@ function BannersSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' | 'DEL
     const payload = { title: form.title, image_url: form.image_url, link_url: form.link_url, sort_order: form.sort_order, is_active: form.is_active };
     try {
       if (editingId) {
-        const { error } = await supabase.from('system_banners').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingId);
-        if (error) { showToast('Gagal memperbarui: ' + error.message, 'error'); return; }
+        await adminApi(
+          `/api/admin/system-settings/banners/${encodeURIComponent(editingId)}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          }
+        );
+
         showToast('Banner diperbarui');
-        await auditLog('UPDATE', `Memperbarui banner "${form.title}"`);
+
+        await auditLog(
+          'UPDATE',
+          `Memperbarui banner "${form.title}"`
+        );
       } else {
-        const { error } = await supabase.from('system_banners').insert(payload);
-        if (error) { showToast('Gagal menambah: ' + error.message, 'error'); return; }
+        await adminApi(
+          '/api/admin/system-settings/banners',
+          {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          }
+        );
+
         showToast('Banner ditambahkan');
-        await auditLog('CREATE', `Menambah banner "${form.title}"`);
+
+        await auditLog(
+          'CREATE',
+          `Menambah banner "${form.title}"`
+        );
       }
+
       setModalOpen(false);
       await fetch();
-    } finally { setSubmitting(false); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal menyimpan banner',
+        'error'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleActive = async (b: Banner) => {
     try {
-      const { error } = await supabase.from('system_banners').update({ is_active: !b.is_active, updated_at: new Date().toISOString() }).eq('id', b.id);
-      if (error) { showToast('Gagal mengubah status', 'error'); return; }
-      showToast(b.is_active ? 'Banner dinonaktifkan' : 'Banner diaktifkan');
-      await auditLog('UPDATE', `${b.is_active ? 'Nonaktifkan' : 'Aktifkan'} banner "${b.title}"`);
+      await adminApi(
+        `/api/admin/system-settings/banners/${encodeURIComponent(b.id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title: b.title,
+            image_url: b.image_url,
+            link_url: b.link_url,
+            sort_order: b.sort_order,
+            is_active: !b.is_active,
+          }),
+        }
+      );
+
+      showToast(
+        b.is_active
+          ? 'Banner dinonaktifkan'
+          : 'Banner diaktifkan'
+      );
+
+      await auditLog(
+        'UPDATE',
+        `${b.is_active ? 'Nonaktifkan' : 'Aktifkan'} banner "${b.title}"`
+      );
+
       await fetch();
-    } catch { showToast('Gagal mengubah status', 'error'); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengubah status',
+        'error'
+      );
+    }
   };
 
   const moveOrder = async (b: Banner, dir: -1 | 1) => {
     const newOrder = b.sort_order + dir;
+
     try {
-      const { error } = await supabase.from('system_banners').update({ sort_order: newOrder, updated_at: new Date().toISOString() }).eq('id', b.id);
-      if (error) { showToast('Gagal mengubah urutan', 'error'); return; }
+      await adminApi(
+        `/api/admin/system-settings/banners/${encodeURIComponent(b.id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title: b.title,
+            image_url: b.image_url,
+            link_url: b.link_url,
+            sort_order: newOrder,
+            is_active: b.is_active,
+          }),
+        }
+      );
+
       await fetch();
-    } catch { showToast('Gagal mengubah urutan', 'error'); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengubah urutan',
+        'error'
+      );
+    }
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm('Yakin ingin menghapus banner ini?')) return;
+
     try {
-      const { error } = await supabase.from('system_banners').delete().eq('id', id);
-      if (error) { showToast('Gagal menghapus', 'error'); return; }
+      await adminApi(
+        `/api/admin/system-settings/banners/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
       showToast('Banner dihapus');
-      await auditLog('DELETE', `Menghapus banner "${title}"`);
+
+      await auditLog(
+        'DELETE',
+        `Menghapus banner "${title}"`
+      );
+
       await fetch();
-    } catch { showToast('Gagal menghapus', 'error'); }
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal menghapus',
+        'error'
+      );
+    }
   };
 
   return (
@@ -707,54 +1001,178 @@ function BackupSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' | 'DELE
 
   const exportCSV = async (table: string) => {
     setExporting(true);
+
     try {
-      const { data, error } = await supabase.from(table).select('*');
-      if (error) { showToast('Gagal export: ' + error.message, 'error'); return; }
-      if (!data || data.length === 0) { showToast(`Tabel ${table} kosong`, 'warning'); return; }
-      const headers = Object.keys(data[0]);
-      const rows = data.map((r) => headers.map((h) => `"${String((r as Record<string, unknown>)[h] ?? '').replace(/"/g, '""')}"`).join(','));
-      const csv = [headers.join(','), ...rows].join('\n');
-      downloadFile(`${table}-export-${Date.now()}.csv`, csv, 'text/csv');
-      showToast(`CSV ${table} berhasil diunduh`);
-      await auditLog('EXPORT', `Export CSV tabel ${table}`);
-    } catch { showToast('Gagal export CSV', 'error'); }
-    finally { setExporting(false); }
+      const result = await adminApi<
+        Record<string, unknown>[]
+      >(
+        `/api/admin/system-settings/export/${encodeURIComponent(table)}`
+      );
+
+      const data = result.data ?? [];
+
+      if (data.length === 0) {
+        showToast(
+          `Tabel ${table} kosong`,
+          'warning'
+        );
+        return;
+      }
+
+      const headers =
+        Object.keys(data[0]);
+
+      const rows = data.map((row) =>
+        headers
+          .map(
+            (header) =>
+              `"${String(row[header] ?? '').replace(/"/g, '""')}"`
+          )
+          .join(',')
+      );
+
+      const csv = [
+        headers.join(','),
+        ...rows,
+      ].join('\n');
+
+      downloadFile(
+        `${table}-export-${Date.now()}.csv`,
+        csv,
+        'text/csv'
+      );
+
+      showToast(
+        `CSV ${table} berhasil diunduh`
+      );
+
+      await auditLog(
+        'EXPORT',
+        `Export CSV tabel ${table}`
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal export CSV',
+        'error'
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const exportAllExcel = async () => {
     setExporting(true);
+
     try {
+      const result = await adminApi<
+        Record<string, Record<string, unknown>[]>
+      >('/api/admin/system-settings/backup');
+
+      const dump = result.data ?? {};
       let combined = '';
-      for (const t of tables) {
-        const { data } = await supabase.from(t).select('*');
-        if (data && data.length > 0) {
-          const headers = Object.keys(data[0]);
-          combined += `\n=== ${t} ===\n`;
-          combined += headers.join(',') + '\n';
-          combined += data.map((r) => headers.map((h) => `"${String((r as Record<string, unknown>)[h] ?? '').replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
+
+      for (const table of tables) {
+        const data = dump[table] ?? [];
+
+        if (data.length === 0) {
+          continue;
         }
+
+        const headers =
+          Object.keys(data[0]);
+
+        combined += `\n=== ${table} ===\n`;
+        combined +=
+          headers.join(',') + '\n';
+
+        combined +=
+          data
+            .map((row) =>
+              headers
+                .map(
+                  (header) =>
+                    `"${String(row[header] ?? '').replace(/"/g, '""')}"`
+                )
+                .join(',')
+            )
+            .join('\n') +
+          '\n';
       }
-      if (!combined) { showToast('Tidak ada data untuk diexport', 'warning'); return; }
-      downloadFile(`backup-all-${Date.now()}.csv`, combined, 'text/csv');
-      showToast('Export semua tabel berhasil diunduh');
-      await auditLog('EXPORT', 'Export semua tabel (Excel/CSV)');
-    } catch { showToast('Gagal export', 'error'); }
-    finally { setExporting(false); }
+
+      if (!combined) {
+        showToast(
+          'Tidak ada data untuk diexport',
+          'warning'
+        );
+        return;
+      }
+
+      downloadFile(
+        `backup-all-${Date.now()}.csv`,
+        combined,
+        'text/csv'
+      );
+
+      showToast(
+        'Export semua tabel berhasil diunduh'
+      );
+
+      await auditLog(
+        'EXPORT',
+        'Export semua tabel (Excel/CSV)'
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal export',
+        'error'
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const backupDatabase = async () => {
     setExporting(true);
+
     try {
-      const dump: Record<string, unknown[]> = {};
-      for (const t of tables) {
-        const { data } = await supabase.from(t).select('*');
-        dump[t] = data ?? [];
-      }
-      downloadFile(`backup-db-${Date.now()}.json`, JSON.stringify(dump, null, 2), 'application/json');
-      showToast('Backup database berhasil diunduh');
-      await auditLog('EXPORT', 'Backup database (JSON)');
-    } catch { showToast('Gagal backup', 'error'); }
-    finally { setExporting(false); }
+      const result = await adminApi<
+        Record<string, Record<string, unknown>[]>
+      >('/api/admin/system-settings/backup');
+
+      const dump = result.data ?? {};
+
+      downloadFile(
+        `backup-db-${Date.now()}.json`,
+        JSON.stringify(
+          dump,
+          null,
+          2
+        ),
+        'application/json'
+      );
+
+      showToast(
+        'Backup database berhasil diunduh'
+      );
+
+      await auditLog(
+        'EXPORT',
+        'Backup database (JSON)'
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal backup',
+        'error'
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const restoreDatabase = () => {
@@ -802,7 +1220,7 @@ function BackupSection({ auditLog }: { auditLog: (t: 'UPDATE' | 'CREATE' | 'DELE
 
 /* ---------- 7. Audit ---------- */
 
-function AuditSection({ data, auditLog }: { data: Record<string, unknown>; auditLog: (t: 'UPDATE' | 'CREATE' | 'DELETE' | 'EXPORT', d: string) => void }) {
+function AuditSection({ data }: { data: Record<string, unknown> }) {
   const [stats, setStats] = useState<AuditStats>({
     app_version: String(data.app_version ?? '1.0.0'),
     last_deploy: String(data.last_deploy ?? '-'),
@@ -814,21 +1232,36 @@ function AuditSection({ data, auditLog }: { data: Record<string, unknown>; audit
   useEffect(() => {
     (async () => {
       try {
-        const [u, i, f, b] = await Promise.all([
-          supabase.from('admin_users').select('id', { count: 'exact', head: true }),
-          supabase.from('inventory').select('id', { count: 'exact', head: true }),
-          supabase.from('facilities').select('id', { count: 'exact', head: true }),
-          supabase.from('borrowings').select('id', { count: 'exact', head: true }),
-        ]);
-        setStats((prev) => ({
-          ...prev,
-          user_count: u.count ?? 0,
-          inventory_count: i.count ?? 0,
-          facility_count: f.count ?? 0,
-          borrowing_count: b.count ?? 0,
-        }));
-      } catch { /* noop */ }
-      finally { setLoading(false); }
+        const result =
+          await adminApi<{
+            user_count: number;
+            inventory_count: number;
+            facility_count: number;
+            borrowing_count: number;
+          }>(
+            '/api/admin/system-settings/audit-stats'
+          );
+
+        const data = result.data;
+
+        if (data) {
+          setStats((previous) => ({
+            ...previous,
+            user_count:
+              data.user_count ?? 0,
+            inventory_count:
+              data.inventory_count ?? 0,
+            facility_count:
+              data.facility_count ?? 0,
+            borrowing_count:
+              data.borrowing_count ?? 0,
+          }));
+        }
+      } catch {
+        /* noop */
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

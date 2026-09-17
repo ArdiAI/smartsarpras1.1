@@ -11,7 +11,7 @@ Major schema upgrade for the full SIMS (Sistem Informasi Manajemen Sarpras) rede
 
 ### 2. Enhance `roles` table
 - Add `is_active` column (default true) to allow deactivating roles
-- Seed default SARPRAS school roles: Wakasek Sarpras, Wakasek Kesiswaan, Pembina, Kepala Bengkel, Guru, Siswa
+- Seed default SARPRAS school roles: Staff Sarpras, Wakasek Kesiswaan, Pembina, Kepala Bengkel, Guru, Siswa
 
 ### 3. Add `admin_users.is_active` column
 - Allows Super Admin to deactivate users without deletion
@@ -68,7 +68,7 @@ END $$;
 
 -- Seed new default roles
 INSERT INTO roles (name, description, level, is_system) VALUES
-  ('Wakasek Sarpras',    'Wakil Kepala Sekolah Bidang Sarana Prasarana', 90, true),
+  ('Staff Sarpras',    'Wakil Kepala Sekolah Bidang Sarana Prasarana', 90, true),
   ('Wakasek Kesiswaan',  'Wakil Kepala Sekolah Bidang Kesiswaan',        85, true),
   ('Pembina',            'Pembina kegiatan ekstrakurikuler/organisasi',  60, true),
   ('Kepala Bengkel',     'Kepala Bengkel Jurusan',                       55, false),
@@ -219,7 +219,7 @@ INSERT INTO workflow_templates (name, description) VALUES
   ('Workflow Jurusan', 'Workflow persetujuan fasilitas milik jurusan')
 ON CONFLICT (name) DO NOTHING;
 
--- Seed steps for Workflow Sarpras (Pembina → Wakasek Kesiswaan → PJ Fasilitas → Wakasek Sarpras)
+-- Seed steps for Workflow Sarpras (Pembina → Wakasek Kesiswaan → PJ Fasilitas → Staff Sarpras)
 INSERT INTO workflow_steps (workflow_template_id, step_order, role_id, step_label)
 SELECT wt.id, 1, r.id, 'Persetujuan Pembina'
 FROM workflow_templates wt, roles r
@@ -239,9 +239,9 @@ WHERE wt.name = 'Workflow Sarpras' AND r.name = 'Penanggung Jawab Fasilitas'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO workflow_steps (workflow_template_id, step_order, role_id, step_label)
-SELECT wt.id, 4, r.id, 'Persetujuan Wakasek Sarpras'
+SELECT wt.id, 4, r.id, 'Persetujuan Staff Sarpras'
 FROM workflow_templates wt, roles r
-WHERE wt.name = 'Workflow Sarpras' AND r.name = 'Wakasek Sarpras'
+WHERE wt.name = 'Workflow Sarpras' AND r.name = 'Staff Sarpras'
 ON CONFLICT DO NOTHING;
 
 -- Seed steps for Workflow Jurusan (Pembina → Wakasek Kesiswaan → Kepala Bengkel → Sarpras Mengetahui)
@@ -266,7 +266,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO workflow_steps (workflow_template_id, step_order, role_id, step_label, is_info_only)
 SELECT wt.id, 4, r.id, 'Diketahui Sarpras', true
 FROM workflow_templates wt, roles r
-WHERE wt.name = 'Workflow Jurusan' AND r.name = 'Wakasek Sarpras'
+WHERE wt.name = 'Workflow Jurusan' AND r.name = 'Staff Sarpras'
 ON CONFLICT DO NOTHING;
 
 -- ============================================================

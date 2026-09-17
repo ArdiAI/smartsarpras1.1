@@ -1,116 +1,740 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react';
+
+import type {
+  Session,
+  User,
+} from '@supabase/supabase-js';
+
 import { supabase } from '../lib/supabase';
 import { logActivity } from '../lib/auditLog';
 
-export interface AdminProfile { id: string; user_id: string; email: string; name: string; role: string; is_active: boolean; }
-interface AuthContextValue {
-  session: Session | null; user: User | null; adminProfile: AdminProfile | null; permissions: Set<string>; loading: boolean;
-  hasPermission: (module: string, action: string) => boolean;
-  isSuperAdmin: boolean;
-  userRoleNames: string[];
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
-  refreshAdminProfile: () => Promise<void>;
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:3001';
+
+export interface AdminProfile {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+interface ApiRole {
+  id: string;
+  name: string;
+}
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
-  const [permissions, setPermissions] = useState<Set<string>>(new Set());
-  const [userRoleNames, setUserRoleNames] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ApiPermission {
+  module: string;
+  action: string;
+}
 
-  const fetchUserPermissions = useCallback(async (adminUserId: string) => {
-    try {
-      const { data: roleLinks } = await supabase.from('admin_user_roles').select('role_id').eq('admin_user_id', adminUserId);
-      const roleIds = (roleLinks ?? []).map((r: any) => r.role_id);
-      if (roleIds.length === 0) { setPermissions(new Set()); setUserRoleNames([]); return; }
+interface AuthContextResponse {
+  ok: boolean;
 
-      const { data: roles } = await supabase.from('roles').select('name').in('id', roleIds).eq('is_active', true);
-      const roleNames = (roles ?? []).map((r: any) => r.name as string);
-      setUserRoleNames(roleNames);
+  data?: {
+    adminProfile: Omit<
+      AdminProfile,
+      'role'
+    > & {
+      role?: string | null;
+    };
 
-      const { data: permLinks } = await supabase.from('role_permissions').select('permissions(module, action)').in('role_id', roleIds);
-      const perms = new Set<string>();
-      (permLinks ?? []).forEach((p: any) => { if (p?.permissions) perms.add(`${p.permissions.module}:${p.permissions.action}`); });
-      setPermissions(perms);
-    } catch { setPermissions(new Set()); setUserRoleNames([]); }
-  }, []);
+    roles: ApiRole[];
 
-  const refreshAdminProfile = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data } = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
-      if (data) { const profile = data as unknown as AdminProfile; setAdminProfile(profile); await fetchUserPermissions(profile.id); }
-    } catch { /* noop */ }
-  }, [user, fetchUserPermissions]);
+    permissions: ApiPermission[];
+
+    isSuperAdmin: boolean;
+  };
+
+  message?: string;
+}
+
+interface AuthContextValue {
+  session: Session | null;
+
+  user: User | null;
+
+  adminProfile:
+    | AdminProfile
+    | null;
+
+  permissions: Set<string>;
+
+  loading: boolean;
+
+  hasPermission: (
+    module: string,
+    action: string
+  ) => boolean;
+
+  isSuperAdmin: boolean;
+
+  userRoleNames: string[];
+
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{
+    error: string | null;
+  }>;
+
+  signUp: (
+    email: string,
+    password: string,
+    name: string
+  ) => Promise<{
+    error: string | null;
+  }>;
+
+  signOut: () => Promise<void>;
+
+  refreshAdminProfile:
+    () => Promise<void>;
+}
+
+const AuthContext =
+  createContext<
+    AuthContextValue | undefined
+  >(undefined);
+
+
+// =====================================================
+// PROVIDER
+// =====================================================
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [
+    session,
+    setSession,
+  ] =
+    useState<Session | null>(
+      null
+    );
+
+  const [
+    user,
+    setUser,
+  ] =
+    useState<User | null>(
+      null
+    );
+
+  const [
+    adminProfile,
+    setAdminProfile,
+  ] =
+    useState<AdminProfile | null>(
+      null
+    );
+
+  const [
+    permissions,
+    setPermissions,
+  ] =
+    useState<Set<string>>(
+      new Set()
+    );
+
+  const [
+    userRoleNames,
+    setUserRoleNames,
+  ] =
+    useState<string[]>([]);
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+
+  // =====================================================
+  // RESET ADMIN STATE
+  // =====================================================
+
+  const clearAdminState =
+    useCallback(() => {
+      setAdminProfile(null);
+      setPermissions(
+        new Set()
+      );
+
+      setUserRoleNames(
+        []
+      );
+    }, []);
+
+
+  // =====================================================
+  // LOAD ADMIN CONTEXT
+  // PostgreSQL melalui backend
+  // =====================================================
+
+  const loadAdminContext =
+    useCallback(
+      async (
+        activeSession:
+          | Session
+          | null
+      ) => {
+        if (
+          !activeSession
+            ?.access_token
+        ) {
+          clearAdminState();
+
+          return null;
+        }
+
+        try {
+          const response =
+            await fetch(
+              `${API_BASE_URL}/api/auth/context`,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${activeSession.access_token}`,
+                },
+              }
+            );
+
+          const result =
+            (await response
+              .json()
+              .catch(
+                () => null
+              )) as
+              | AuthContextResponse
+              | null;
+
+          if (
+            !response.ok ||
+            !result?.ok ||
+            !result.data
+          ) {
+            // User boleh tetap login di Supabase,
+            // tetapi kalau bukan admin aktif,
+            // adminProfile harus kosong.
+            clearAdminState();
+
+            return null;
+          }
+
+          const roles =
+            result.data.roles ??
+            [];
+
+          const roleNames =
+            roles
+              .map(
+                (role) =>
+                  role.name
+              )
+              .filter(Boolean);
+
+          const permissionSet =
+            new Set<string>();
+
+          (
+            result.data
+              .permissions ??
+            []
+          ).forEach(
+            (permission) => {
+              if (
+                permission.module &&
+                permission.action
+              ) {
+                permissionSet.add(
+                  `${permission.module}:${permission.action}`
+                );
+              }
+            }
+          );
+
+          const rawProfile =
+            result.data
+              .adminProfile;
+
+          // Backend requireAdmin saat ini mengambil
+          // profile tanpa kolom role lama.
+          // Jadi fallback ke nama role dari tabel roles.
+          const profile: AdminProfile =
+            {
+              ...rawProfile,
+
+              role:
+                rawProfile.role ??
+                roleNames.join(
+                  ', '
+                ) ??
+                '',
+            };
+
+          setAdminProfile(
+            profile
+          );
+
+          setUserRoleNames(
+            roleNames
+          );
+
+          setPermissions(
+            permissionSet
+          );
+
+          return {
+            profile,
+            roleNames,
+            permissionSet,
+            isSuperAdmin:
+              result.data
+                .isSuperAdmin,
+          };
+        } catch (error) {
+          console.error(
+            '[AuthContext] gagal memuat admin context:',
+            error
+          );
+
+          clearAdminState();
+
+          return null;
+        }
+      },
+      [clearAdminState]
+    );
+
+
+  // =====================================================
+  // INITIAL SESSION
+  // =====================================================
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => { if (!mounted) return; setSession(data.session); setUser(data.session?.user ?? null); setLoading(false); });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession); setUser(newSession?.user ?? null);
-      if (!newSession) { setAdminProfile(null); setPermissions(new Set()); setUserRoleNames([]); }
-    });
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
-  }, []);
 
-  useEffect(() => {
-    if (!user) { setAdminProfile(null); setPermissions(new Set()); setUserRoleNames([]); return; }
-    (async () => {
-      try {
-        const { data } = await supabase.from('admin_users').select('*').eq('user_id', user.id).maybeSingle();
-        if (data) { const profile = data as unknown as AdminProfile; setAdminProfile(profile); await fetchUserPermissions(profile.id); }
-      } catch { /* noop */ }
-    })();
-  }, [user, fetchUserPermissions]);
+    const initialize =
+      async () => {
+        try {
+          const {
+            data,
+          } =
+            await supabase.auth.getSession();
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) {
-      try {
-        const { data } = await supabase.from('admin_users').select('id, name, email, role').eq('email', email).maybeSingle();
-        const profile = data as unknown as { id: string; name: string; email: string; role: string } | null;
-        if (profile) {
-          await logActivity({
-            adminUserId: profile.id,
-            adminName: profile.name,
-            adminEmail: profile.email,
-            adminRole: profile.role,
-            activityType: 'LOGIN',
-            module: 'Auth',
-            description: `${profile.name} berhasil login`,
-          });
+          if (!mounted) {
+            return;
+          }
+
+          const currentSession =
+            data.session;
+
+          setSession(
+            currentSession
+          );
+
+          setUser(
+            currentSession
+              ?.user ??
+              null
+          );
+
+          if (
+            currentSession
+          ) {
+            await loadAdminContext(
+              currentSession
+            );
+          } else {
+            clearAdminState();
+          }
+        } catch (error) {
+          console.error(
+            '[AuthContext] init error:',
+            error
+          );
+
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            clearAdminState();
+          }
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
         }
-      } catch { /* noop */ }
-    }
-    return { error: error?.message ?? null };
-  };
-  const signUp = async (email: string, password: string, name: string) => { const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } }); return { error: error?.message ?? null }; };
-  const signOut = async () => {
-    if (adminProfile) {
-      await logActivity({
-        adminUserId: adminProfile.id,
-        adminName: adminProfile.name,
-        adminEmail: adminProfile.email,
-        adminRole: userRoleNames.join(', ') || adminProfile.role,
-        activityType: 'LOGOUT',
-        module: 'Auth',
-        description: `${adminProfile.name} logout`,
-      });
-    }
-    await supabase.auth.signOut();
-    setAdminProfile(null); setPermissions(new Set()); setUserRoleNames([]);
-  };
-  const hasPermission = useCallback((module: string, action: string) => permissions.has(`${module}:${action}`), [permissions]);
+      };
 
-  const isSuperAdmin = useMemo(() => userRoleNames.includes('Super Admin'), [userRoleNames]);
+    void initialize();
 
-  return <AuthContext.Provider value={{ session, user, adminProfile, permissions, loading, hasPermission, isSuperAdmin, userRoleNames, signIn, signUp, signOut, refreshAdminProfile }}>{children}</AuthContext.Provider>;
+    const {
+      data: subscription,
+    } =
+      supabase.auth.onAuthStateChange(
+        (
+          _event,
+          newSession
+        ) => {
+          if (!mounted) {
+            return;
+          }
+
+          setSession(
+            newSession
+          );
+
+          setUser(
+            newSession
+              ?.user ??
+              null
+          );
+
+          if (
+            !newSession
+          ) {
+            clearAdminState();
+            setLoading(false);
+
+            return;
+          }
+
+          void loadAdminContext(
+            newSession
+          );
+        }
+      );
+
+    return () => {
+      mounted = false;
+
+      subscription.subscription.unsubscribe();
+    };
+  }, [
+    clearAdminState,
+    loadAdminContext,
+  ]);
+
+
+  // =====================================================
+  // REFRESH ADMIN PROFILE
+  // =====================================================
+
+  const refreshAdminProfile =
+    useCallback(
+      async () => {
+        try {
+          const {
+            data,
+          } =
+            await supabase.auth.getSession();
+
+          const currentSession =
+            data.session;
+
+          if (
+            !currentSession
+          ) {
+            clearAdminState();
+            return;
+          }
+
+          await loadAdminContext(
+            currentSession
+          );
+        } catch (error) {
+          console.error(
+            '[AuthContext] refresh error:',
+            error
+          );
+        }
+      },
+      [
+        clearAdminState,
+        loadAdminContext,
+      ]
+    );
+
+
+  // =====================================================
+  // SIGN IN
+  // =====================================================
+
+  const signIn =
+    async (
+      email: string,
+      password: string
+    ) => {
+      const {
+        data,
+        error,
+      } =
+        await supabase.auth
+          .signInWithPassword({
+            email,
+            password,
+          });
+
+      if (error) {
+        return {
+          error:
+            error.message,
+        };
+      }
+
+      const newSession =
+        data.session;
+
+      if (
+        newSession
+      ) {
+        setSession(
+          newSession
+        );
+
+        setUser(
+          newSession.user
+        );
+
+        const adminContext =
+          await loadAdminContext(
+            newSession
+          );
+
+        if (
+          adminContext
+            ?.profile
+        ) {
+          try {
+            await logActivity({
+              adminUserId:
+                adminContext
+                  .profile.id,
+
+              adminName:
+                adminContext
+                  .profile.name,
+
+              adminEmail:
+                adminContext
+                  .profile.email,
+
+              adminRole:
+                adminContext
+                  .roleNames
+                  .join(
+                    ', '
+                  ) ||
+                adminContext
+                  .profile
+                  .role,
+
+              activityType:
+                'LOGIN',
+
+              module:
+                'Auth',
+
+              description:
+                `${adminContext.profile.name} berhasil login`,
+            });
+          } catch (error) {
+            console.error(
+              '[AuthContext] login audit error:',
+              error
+            );
+          }
+        }
+      }
+
+      return {
+        error: null,
+      };
+    };
+
+
+  // =====================================================
+  // SIGN UP
+  // Supabase Auth tetap sementara
+  // =====================================================
+
+  const signUp =
+    async (
+      email: string,
+      password: string,
+      name: string
+    ) => {
+      const {
+        error,
+      } =
+        await supabase.auth
+          .signUp({
+            email,
+            password,
+
+            options: {
+              data: {
+                name,
+              },
+            },
+          });
+
+      return {
+        error:
+          error?.message ??
+          null,
+      };
+    };
+
+
+  // =====================================================
+  // SIGN OUT
+  // =====================================================
+
+  const signOut =
+    async () => {
+      if (
+        adminProfile
+      ) {
+        try {
+          await logActivity({
+            adminUserId:
+              adminProfile.id,
+
+            adminName:
+              adminProfile.name,
+
+            adminEmail:
+              adminProfile.email,
+
+            adminRole:
+              userRoleNames.join(
+                ', '
+              ) ||
+              adminProfile.role,
+
+            activityType:
+              'LOGOUT',
+
+            module:
+              'Auth',
+
+            description:
+              `${adminProfile.name} logout`,
+          });
+        } catch (error) {
+          console.error(
+            '[AuthContext] logout audit error:',
+            error
+          );
+        }
+      }
+
+      await supabase.auth
+        .signOut();
+
+      setSession(null);
+      setUser(null);
+
+      clearAdminState();
+    };
+
+
+  // =====================================================
+  // PERMISSIONS
+  // =====================================================
+
+  const hasPermission =
+    useCallback(
+      (
+        module: string,
+        action: string
+      ) =>
+        permissions.has(
+          `${module}:${action}`
+        ),
+      [permissions]
+    );
+
+
+  // =====================================================
+  // SUPER ADMIN
+  // =====================================================
+
+  const isSuperAdmin =
+    useMemo(() => {
+      return userRoleNames.some(
+        (roleName) =>
+          roleName
+            .trim()
+            .toLowerCase()
+            .replace(
+              /[\s_-]+/g,
+              ''
+            ) ===
+          'superadmin'
+      );
+    }, [
+      userRoleNames,
+    ]);
+
+
+  // =====================================================
+  // PROVIDER VALUE
+  // =====================================================
+
+  return (
+    <AuthContext.Provider
+      value={{
+        session,
+        user,
+        adminProfile,
+        permissions,
+        loading,
+        hasPermission,
+        isSuperAdmin,
+        userRoleNames,
+        signIn,
+        signUp,
+        signOut,
+        refreshAdminProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
-export function useAuth() { const ctx = useContext(AuthContext); if (!ctx) throw new Error('useAuth must be used within AuthProvider'); return ctx; }
+
+
+// =====================================================
+// HOOK
+// =====================================================
+
+export function useAuth() {
+  const ctx =
+    useContext(
+      AuthContext
+    );
+
+  if (!ctx) {
+    throw new Error(
+      'useAuth must be used within AuthProvider'
+    );
+  }
+
+  return ctx;
+}

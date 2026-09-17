@@ -13,13 +13,25 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { recipientEmail, subject, message } = await req.json();
+    const body = await req.json();
+    const subject: string | undefined = body.subject;
+    const message: string | undefined = body.message;
 
-    if (!recipientEmail || !subject || !message) {
+    // Support both single recipient (recipientEmail) and multiple recipients (recipientEmails).
+    // recipientEmails takes priority; if absent, fall back to recipientEmail.
+    let recipients: string[] = [];
+    if (Array.isArray(body.recipientEmails)) {
+      recipients = body.recipientEmails.filter((e: unknown) => typeof e === "string" && e);
+    }
+    if (recipients.length === 0 && typeof body.recipientEmail === "string" && body.recipientEmail) {
+      recipients = [body.recipientEmail];
+    }
+
+    if (recipients.length === 0 || !subject || !message) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: "recipientEmail, subject, dan message wajib diisi",
+          message: "recipientEmail(s), subject, dan message wajib diisi",
         }),
         {
           status: 400,
@@ -52,7 +64,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log("[send-borrowing-email] Email dimulai");
-    console.log(`[send-borrowing-email] Mengirim ke: ${recipientEmail}`);
+    console.log(`[send-borrowing-email] Mengirim ke: ${recipients.join(", ")}`);
 
     const transporter = nodemailer.createTransport({
       host: smtpHost,
@@ -69,7 +81,7 @@ Deno.serve(async (req: Request) => {
 
     const info = await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
-      to: recipientEmail,
+      to: recipients.join(", "),
       subject: subject,
       html: message,
     });

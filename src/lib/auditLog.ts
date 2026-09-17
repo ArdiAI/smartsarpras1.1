@@ -1,9 +1,24 @@
 import { supabase } from './supabase';
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  'http://localhost:3001';
+
 export type ActivityType =
-  | 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE'
-  | 'APPROVE' | 'REJECT' | 'FORWARD' | 'RETURN' | 'COMPLETE'
-  | 'UPLOAD' | 'DOWNLOAD' | 'EXPORT' | 'IMPORT';
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'FORWARD'
+  | 'RETURN'
+  | 'COMPLETE'
+  | 'UPLOAD'
+  | 'DOWNLOAD'
+  | 'EXPORT'
+  | 'IMPORT';
 
 export interface AuditLogInput {
   adminUserId?: string | null;
@@ -15,24 +30,64 @@ export interface AuditLogInput {
   description?: string | null;
 }
 
-/**
- * Insert a single audit log row into system_activity_logs.
- * Fire-and-forget: errors are logged to console but never thrown,
- * so a failed log never breaks the calling action.
- */
-export async function logActivity(input: AuditLogInput): Promise<void> {
+export async function logActivity(
+  input: AuditLogInput
+): Promise<void> {
   try {
-    const { error } = await supabase.from('system_activity_logs').insert({
-      admin_user_id: input.adminUserId ?? null,
-      admin_name: input.adminName ?? null,
-      admin_email: input.adminEmail ?? null,
-      admin_role: input.adminRole ?? null,
-      activity_type: input.activityType,
-      module: input.module,
-      description: input.description ?? null,
-    });
-    if (error) console.error('[auditLog] insert failed:', error.message);
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error(
+        '[auditLog] gagal membaca session:',
+        error.message
+      );
+      return;
+    }
+
+    const token = session?.access_token;
+
+    if (!token) {
+      console.warn(
+        '[auditLog] tidak ada session login'
+      );
+      return;
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/admin/activity-logs`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          activityType: input.activityType,
+          module: input.module,
+          description:
+            input.description ?? null,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      console.error(
+        '[auditLog] insert failed:',
+        result?.message ??
+          `HTTP ${response.status}`
+      );
+    }
   } catch (err) {
-    console.error('[auditLog] unexpected error:', err);
+    console.error(
+      '[auditLog] unexpected error:',
+      err
+    );
   }
 }
