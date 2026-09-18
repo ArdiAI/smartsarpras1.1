@@ -38,6 +38,149 @@ app.use(
 app.use(express.json());
 
 
+function createRateLimiter({
+  windowMs,
+  max,
+  label,
+}) {
+  const buckets =
+    new Map();
+
+  const timer =
+    setInterval(
+      () => {
+        const now =
+          Date.now();
+
+        for (
+          const [
+            key,
+            value,
+          ] of buckets
+        ) {
+          if (
+            now -
+              value.startedAt >=
+            windowMs
+          ) {
+            buckets.delete(
+              key
+            );
+          }
+        }
+      },
+      Math.max(
+        30_000,
+        windowMs
+      )
+    );
+
+  timer.unref?.();
+
+  return (
+    req,
+    res,
+    next
+  ) => {
+    const now =
+      Date.now();
+
+    const identity =
+      req.authUser?.id ||
+      req.ip ||
+      'unknown';
+
+    const key =
+      `${label}:${identity}`;
+
+    const current =
+      buckets.get(key);
+
+    if (
+      !current ||
+      now -
+          current.startedAt >=
+        windowMs
+    ) {
+      buckets.set(
+        key,
+        {
+          count: 1,
+          startedAt: now,
+        }
+      );
+
+      return next();
+    }
+
+    if (
+      current.count >=
+      max
+    ) {
+      const retryAfter =
+        Math.max(
+          1,
+          Math.ceil(
+            (
+              windowMs -
+              (
+                now -
+                current.startedAt
+              )
+            ) /
+              1000
+          )
+        );
+
+      res.setHeader(
+        'Retry-After',
+        String(
+          retryAfter
+        )
+      );
+
+      return res
+        .status(429)
+        .json({
+          ok: false,
+          message:
+            'Terlalu banyak permintaan. Silakan coba lagi beberapa saat.',
+        });
+    }
+
+    current.count +=
+      1;
+
+    buckets.set(
+      key,
+      current
+    );
+
+    next();
+  };
+}
+
+
+const publicWriteLimiter =
+  createRateLimiter({
+    windowMs:
+      60 * 1000,
+    max: 30,
+    label:
+      'public-write',
+  });
+
+
+const uploadWriteLimiter =
+  createRateLimiter({
+    windowMs:
+      60 * 1000,
+    max: 12,
+    label:
+      'upload-write',
+  });
+
+
 // =====================================================
 // GOOGLE DRIVE UPLOAD
 // Supabase Storage sudah tidak dipakai untuk data aplikasi.
@@ -45,6 +188,8 @@ app.use(express.json());
 
 app.post(
   '/api/upload-drive',
+  requireAuth,
+  uploadWriteLimiter,
   upload.single('file'),
   async (req, res) => {
     try {
@@ -1661,7 +1806,11 @@ app.get('/api/proposals', async (req, res) => {
   }
 });
 
-app.post('/api/proposals', async (req, res) => {
+app.post(
+  '/api/proposals',
+  requireAuth,
+  publicWriteLimiter,
+  async (req, res) => {
   try {
     const activityName = String(req.body?.activity_name ?? '').trim();
     const proposerName = String(req.body?.proposer_name ?? '').trim();
@@ -1812,7 +1961,11 @@ app.get('/api/about', async (req, res) => {
 // =====================================================
 
 // Buat agenda dari halaman user
-app.post('/api/agendas', async (req, res) => {
+app.post(
+  '/api/agendas',
+  requireAuth,
+  publicWriteLimiter,
+  async (req, res) => {
   try {
     const {
       title,
@@ -1920,6 +2073,8 @@ app.post('/api/agendas', async (req, res) => {
 // simpan URL lampiran ke PostgreSQL
 app.patch(
   '/api/agendas/:id/surat-url',
+  requireAuth,
+  publicWriteLimiter,
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -2028,7 +2183,11 @@ app.get('/api/reports/recent', async (req, res) => {
 
 
 // Kirim laporan kerusakan
-app.post('/api/reports', async (req, res) => {
+app.post(
+  '/api/reports',
+  requireAuth,
+  publicWriteLimiter,
+  async (req, res) => {
   try {
     const {
       reporter_name,
@@ -4448,6 +4607,8 @@ function escapeBorrowingEmailHtml(value) {
 
 app.post(
   '/api/borrowings',
+  requireAuth,
+  publicWriteLimiter,
   async (req, res) => {
     const client = await pool.connect();
 
@@ -10701,6 +10862,8 @@ app.get(
 
 app.post(
   '/api/aspirasi',
+  requireAuth,
+  publicWriteLimiter,
   async (req, res) => {
     try {
       const anonim =
@@ -10928,6 +11091,7 @@ app.post(
   '/api/kavling',
 
   requireAuth,
+  publicWriteLimiter,
 
   async (req, res) => {
     try {
@@ -13736,6 +13900,8 @@ app.get(
 
 app.post(
   '/api/agendas/:id/attachments',
+  requireAuth,
+  publicWriteLimiter,
   async (req, res) => {
     try {
       const agendaId =
@@ -13887,6 +14053,8 @@ app.post(
 
 app.post(
   '/api/agendas/:id/notify',
+  requireAuth,
+  publicWriteLimiter,
   async (req, res) => {
     try {
       const agendaId =
