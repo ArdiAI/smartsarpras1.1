@@ -17,6 +17,7 @@ import {
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import EmptyState from '../components/EmptyState';
+import { authFetch } from '../lib/authFetch';
 
 
 const API_BASE_URL =
@@ -183,7 +184,7 @@ export default function RekapPage() {
 
       try {
         const response =
-          await fetch(
+          await authFetch(
             `${API_BASE_URL}/api/rekap`
           );
 
