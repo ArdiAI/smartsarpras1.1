@@ -20,6 +20,7 @@ import {
 
 import { showToast } from '../components/Toast';
 import AnimatedBackground from '../components/AnimatedBackground';
+import { authFetch } from '../lib/authFetch';
 import EmptyState from '../components/EmptyState';
 
 const API_BASE_URL =
@@ -265,11 +266,11 @@ export default function BorrowPage() {
             facilitiesResponse,
           ] =
             await Promise.all([
-              fetch(
+              authFetch(
                 `${API_BASE_URL}/api/inventory`
               ),
 
-              fetch(
+              authFetch(
                 `${API_BASE_URL}/api/facilities`
               ),
             ]);
@@ -666,7 +667,7 @@ export default function BorrowPage() {
 
       try {
         const response =
-          await fetch(
+          await authFetch(
             `${API_BASE_URL}/api/borrowings`,
             {
               method:
