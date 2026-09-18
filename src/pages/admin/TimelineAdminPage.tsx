@@ -24,6 +24,7 @@ import { supabase } from '../../lib/supabase';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
+import { fetchPublicFeatures } from '../../lib/publicFeatures';
 
 const WEEKDAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -43,6 +44,7 @@ export default function TimelineAdminPage() {
   const [filterColor, setFilterColor] = useState<EventColorCategory | 'all'>('all');
   const [showAgenda, setShowAgenda] = useState(true);
   const [showBorrowings, setShowBorrowings] = useState(false);
+  const [savingBorrowingVisibility, setSavingBorrowingVisibility] = useState(false);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -68,6 +70,38 @@ export default function TimelineAdminPage() {
   useEffect(() => {
     void loadEvents();
   }, [year, month, isSuperAdmin, showBorrowings]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setShowBorrowings(false);
+      return;
+    }
+
+    let mounted = true;
+
+    void fetchPublicFeatures()
+      .then((features) => {
+        if (mounted) {
+          setShowBorrowings(
+            features.borrowingEnabled
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[TimelineAdminPage] gagal memuat visibilitas peminjaman:',
+          error
+        );
+
+        if (mounted) {
+          setShowBorrowings(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     if (
@@ -191,6 +225,115 @@ export default function TimelineAdminPage() {
     );
   };
 
+  const handleToggleBorrowings = async () => {
+    if (
+      !isSuperAdmin ||
+      savingBorrowingVisibility
+    ) {
+      return;
+    }
+
+    setSavingBorrowingVisibility(
+      true
+    );
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } =
+        await supabase.auth
+          .getSession();
+
+      if (sessionError) {
+        throw new Error(
+          sessionError.message
+        );
+      }
+
+      if (
+        !session?.access_token
+      ) {
+        throw new Error(
+          'Sesi login tidak ditemukan. Silakan login kembali.'
+        );
+      }
+
+      const nextValue =
+        !showBorrowings;
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/api/admin/public-features/borrowing`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization:
+                `Bearer ${session.access_token}`,
+              'Content-Type':
+                'application/json',
+            },
+            body:
+              JSON.stringify({
+                enabled:
+                  nextValue,
+              }),
+          }
+        );
+
+      const result =
+        (await response
+          .json()
+          .catch(() => null)) as
+          | {
+              ok?: boolean;
+              data?: {
+                borrowingEnabled?: boolean;
+              };
+              message?: string;
+            }
+          | null;
+
+      if (
+        !response.ok ||
+        !result?.ok
+      ) {
+        throw new Error(
+          result?.message ??
+            'Gagal mengubah visibilitas peminjaman'
+        );
+      }
+
+      const enabled =
+        result.data
+          ?.borrowingEnabled ===
+        true;
+
+      setShowBorrowings(
+        enabled
+      );
+
+      showToast(
+        enabled
+          ? 'Peminjaman ditampilkan di area publik'
+          : 'Peminjaman disembunyikan dari area publik',
+        'success'
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengubah visibilitas peminjaman',
+        'error'
+      );
+    } finally {
+      setSavingBorrowingVisibility(
+        false
+      );
+    }
+  };
+
+
   const handleDelete = async (event: TimelineEvent) => {
     if (!isSuperAdmin || deletingId) return;
 
@@ -306,9 +449,10 @@ export default function TimelineAdminPage() {
 
         <button
           type="button"
-          onClick={() => setShowBorrowings((value) => !value)}
+          onClick={() => void handleToggleBorrowings()}
+          disabled={savingBorrowingVisibility}
           className={cn(
-            'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition',
+            'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
             showBorrowings
               ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-300'
               : 'border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
