@@ -16,21 +16,48 @@ const {
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
 
+if (
+  String(
+    process.env.NODE_ENV ||
+    ''
+  ).toLowerCase() ===
+  'production'
+) {
+  app.set(
+    'trust proxy',
+    1
+  );
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const extraAllowedOrigins =
+  String(
+    process.env.ALLOWED_ORIGINS ||
+    ''
+  )
+    .split(',')
+    .map((value) =>
+      value.trim()
+    )
+    .filter(Boolean);
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://sarpras.smkn1-cmi.sch.id',
+  ...extraAllowedOrigins,
+];
+
 app.use(helmet());
 
 app.use(
   cors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://sarpras.smkn1-cmi.sch.id',
-      'https://sarpras.smkn1-cmi.sch.id/',
-    ],
+    origin:
+      allowedOrigins,
     credentials: true,
   })
 );
