@@ -24,6 +24,7 @@ import { brand } from '../brand/config';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { fetchPublicFeatures } from '../lib/publicFeatures';
 
 const mainNav = [
   { to: '/', label: 'Beranda', icon: Home },
@@ -52,6 +53,7 @@ export default function Navbar() {
   const { user, permissions, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
+  const [borrowingEnabled, setBorrowingEnabled] = useState(false);
   const otherRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,33 @@ export default function Navbar() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void fetchPublicFeatures()
+      .then((features) => {
+        if (mounted) {
+          setBorrowingEnabled(
+            features.borrowingEnabled
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[Navbar] gagal memuat public features:',
+          error
+        );
+
+        if (mounted) {
+          setBorrowingEnabled(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
@@ -104,6 +133,13 @@ export default function Navbar() {
     );
   };
 
+  const visibleMainNav =
+    mainNav.filter(
+      (item) =>
+        item.to !== '/pinjam' ||
+        borrowingEnabled
+    );
+
   const otherActive = [...kavlingNav, ...otherNav].some((item) => isActive(item.to));
 
   return (
@@ -115,7 +151,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
-          {mainNav.map((item) => {
+          {visibleMainNav.map((item) => {
             const active = isActive(item.to);
             return (
               <Link key={item.to} to={item.to} className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition', active ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')}>
@@ -168,7 +204,7 @@ export default function Navbar() {
       {open && (
         <div className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
           <div className="flex flex-col gap-1">
-            {mainNav.map((item) => {
+            {visibleMainNav.map((item) => {
               const active = isActive(item.to);
               return (
                 <Link key={item.to} to={item.to} onClick={() => setOpen(false)} className={cn('flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium', active ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')}>
