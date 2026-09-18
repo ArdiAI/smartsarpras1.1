@@ -3,6 +3,7 @@ import {
   type FormEvent,
 } from 'react';
 
+import { authFetch } from '../lib/authFetch';
 import {
   MessageSquare,
   Send,
@@ -122,7 +123,7 @@ export default function AspirasiPage() {
 
       try {
         const response =
-          await fetch(
+          await authFetch(
             `${API_BASE_URL}/api/aspirasi`,
             {
               method:
