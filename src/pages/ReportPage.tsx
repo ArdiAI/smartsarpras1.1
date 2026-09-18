@@ -3,6 +3,7 @@ import { ClipboardList, Upload, Loader2, AlertTriangle, FileText, X } from 'luci
 import { uploadFileToDrive } from '../lib/upload';
 import { showToast } from '../components/Toast';
 import AnimatedBackground from '../components/AnimatedBackground';
+import { authFetch } from '../lib/authFetch';
 import EmptyState from '../components/EmptyState';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -80,7 +81,7 @@ export default function ReportPage() {
     if (!cleanEmail) return;
     setLoadingRecent(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reports/recent?email=${encodeURIComponent(cleanEmail)}`);
+      const response = await authFetch(`${API_BASE_URL}/api/reports/recent?email=${encodeURIComponent(cleanEmail)}`);
       const result = await response.json().catch(() => null) as ApiResponse<DamageReport[]> | null;
       if (!response.ok || !result?.ok) throw new Error(result?.message ?? 'Gagal mengambil riwayat laporan');
       setRecent(result.data ?? []);
@@ -113,7 +114,7 @@ export default function ReportPage() {
       if (!upload?.url) throw new Error('Foto gagal diunggah. Coba lagi.');
 
       const email = form.reporter_email.trim();
-      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+      const response = await authFetch(`${API_BASE_URL}/api/reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
