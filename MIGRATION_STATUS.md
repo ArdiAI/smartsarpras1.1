@@ -49,3 +49,20 @@ npm run dev
 ```
 
 Backend default: `http://localhost:3001`.
+
+
+## Hardening production 18 September 2026
+
+- Endpoint write user (agenda, laporan, peminjaman, aspirasi, proposal, upload Drive, attachment, notify) wajib session login backend.
+- Endpoint write user memiliki rate limit dasar.
+- Endpoint sensitif read (proposal detail, laporan berdasarkan email, timeline detail/count, rekap) wajib session login.
+- `/api/db-summary` hanya dapat diakses admin.
+- PostgreSQL backend mendukung SSL melalui `PGSSL`.
+- RLS diaktifkan pada tabel public yang sebelumnya terekspos tanpa RLS: inventory, borrowings, facilities, organizations, proposals, admin_users.
+- Helper pemeriksaan Super Admin dipindahkan ke schema `private`.
+- Edge Function `send-borrowing-email` wajib JWT user valid.
+- Edge Function legacy `upload-file`, `migrate-kavling-temp`, dan `get_public_stats` dinonaktifkan (410) dan verify_jwt aktif.
+- GitHub Actions menjalankan `npm run check` pada push/PR ke main.
+- Dependabot dijadwalkan mingguan.
+- Backup/restore PostgreSQL tersedia melalui `npm run backup:db` dan `npm run restore:db`.
+- Supabase Security Advisor tidak lagi memiliki temuan ERROR. Warning yang tersisa: leaked-password protection perlu diaktifkan manual pada Auth settings.
