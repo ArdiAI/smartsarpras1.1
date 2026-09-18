@@ -12,6 +12,7 @@ Gunakan checklist ini sebelum release yang akan diserahkan ke pengurus berikutny
 
 ## Security
 - [ ] Secret lama yang pernah terpublikasi sudah dirotasi.
+- [ ] Leaked-password protection Supabase Auth sudah diaktifkan.
 - [ ] Endpoint write publik membutuhkan session login.
 - [ ] Rate limit aktif untuk submission/upload.
 - [ ] HTTPS aktif untuk frontend dan backend.
