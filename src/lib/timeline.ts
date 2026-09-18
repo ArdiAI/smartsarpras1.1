@@ -1,3 +1,5 @@
+import { authFetch } from './authFetch';
+
 export type EventColorCategory =
   | 'agenda'
   | 'approved'
@@ -432,7 +434,7 @@ export async function fetchTimelineEvents(
 
 
   const response =
-    await fetch(
+    await authFetch(
       `${API_BASE_URL}/api/timeline/events?${params.toString()}`
     );
 
@@ -729,7 +731,7 @@ export async function fetchTodayCounts(): Promise<TimelineCounts> {
 
 
   const response =
-    await fetch(
+    await authFetch(
       `${API_BASE_URL}/api/timeline/counts?${params.toString()}`
     );
 
