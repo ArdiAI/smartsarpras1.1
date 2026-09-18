@@ -4452,6 +4452,30 @@ app.post(
     const client = await pool.connect();
 
     try {
+      const featureResult =
+        await client.query(
+          `
+            SELECT value
+            FROM public.system_config
+            WHERE key =
+              'public_borrowing_enabled'
+            LIMIT 1
+          `
+        );
+
+      const borrowingEnabled =
+        featureResult.rows[0]
+          ?.value === true;
+
+      if (!borrowingEnabled) {
+        return res
+          .status(403)
+          .json({
+            ok: false,
+            message:
+              'Fitur peminjaman sedang disembunyikan oleh Super Admin',
+          });
+      }
       const {
         borrower_name,
         borrower_class,
