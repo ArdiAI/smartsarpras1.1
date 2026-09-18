@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
-import { authFetch } from '../lib/authFetch';import { motion, AnimatePresence } from 'framer-motion';
+import { authFetch } from '../lib/authFetch';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Upload, Send, Check, X, AlertCircle, Clock, Search, Download, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Proposal, PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '../types';
 import { uploadFileToDrive } from '../lib/upload';
