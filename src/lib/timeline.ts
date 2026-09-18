@@ -377,6 +377,34 @@ function normalizeDateOnly(
 }
 
 
+function datesInRange(
+  startDate: string,
+  endDate: string
+) {
+  const dates: string[] = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  if (
+    Number.isNaN(current.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    end < current
+  ) {
+    return [startDate];
+  }
+
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+
 // =====================================================
 // FETCH TIMELINE
 // =====================================================
@@ -459,66 +487,75 @@ export async function fetchTimelineEvents(
       );
 
 
-    events.push({
-      id:
-        agenda.id,
-
-      jenis:
-        'Agenda',
-
-      title:
-        agenda.title ??
-        'Agenda',
-
-      date:
+    const occupiedDates =
+      datesInRange(
         eventDate,
+        endDate ?? eventDate
+      );
 
-      startDate:
-        eventDate,
+    for (const occupiedDate of occupiedDates) {
+      events.push({
+        id:
+          agenda.id,
 
-      endDate,
+        jenis:
+          'Agenda',
 
-      startTime:
-        agenda.start_time ??
-        null,
+        title:
+          agenda.title ??
+          'Agenda',
 
-      endTime:
-        agenda.end_time ??
-        null,
+        date:
+          occupiedDate,
 
-      location:
-        agenda.location ??
-        null,
+        startDate:
+          eventDate,
 
-      organisasi:
-        agenda.organisasi_jurusan ??
-        agenda.penyelenggara ??
-        agenda.organizer ??
-        null,
+        endDate:
+          endDate ?? eventDate,
 
-      penanggungJawab:
-        agenda.penanggung_jawab ??
-        null,
+        startTime:
+          agenda.start_time ??
+          null,
 
-      email:
-        agenda.email ??
-        null,
+        endTime:
+          agenda.end_time ??
+          null,
 
-      contactPhone:
-        agenda.contact_phone ??
-        null,
+        location:
+          agenda.location ??
+          null,
 
-      status:
-        agenda.status ??
-        'scheduled',
+        organisasi:
+          agenda.organisasi_jurusan ??
+          agenda.penyelenggara ??
+          agenda.organizer ??
+          null,
 
-      colorCategory:
-        'agenda',
+        penanggungJawab:
+          agenda.penanggung_jawab ??
+          null,
 
-      description:
-        agenda.description ??
-        null,
-    });
+        email:
+          agenda.email ??
+          null,
+
+        contactPhone:
+          agenda.contact_phone ??
+          null,
+
+        status:
+          agenda.status ??
+          'scheduled',
+
+        colorCategory:
+          'agenda',
+
+        description:
+          agenda.description ??
+          null,
+      });
+    }
   }
 
 
