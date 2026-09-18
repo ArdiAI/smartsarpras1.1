@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '../components/Toast';
 import AnimatedBackground from '../components/AnimatedBackground';
+import { authFetch } from '../lib/authFetch';
 import { getDefaultWorkflow, getWorkflowSteps } from '../lib/workflow';
 
 const API_BASE_URL =
@@ -217,7 +218,7 @@ const uploadSuratFiles = async (
         // =========================================
 
         const uploadResponse =
-          await fetch(
+          await authFetch(
             `${API_BASE_URL}/api/upload-drive`,
             {
               method: 'POST',
@@ -266,7 +267,7 @@ const uploadSuratFiles = async (
         // =========================================
 
         const attachmentResponse =
-          await fetch(
+          await authFetch(
             `${API_BASE_URL}/api/agendas/${encodeURIComponent(
               agendaId
             )}/attachments`,
@@ -416,7 +417,7 @@ const uploadSuratFiles = async (
       }
 
       const response =
-        await fetch(
+        await authFetch(
           `${API_BASE_URL}/api/agendas/${encodeURIComponent(
             agendaId
           )}/notify`,
@@ -476,7 +477,7 @@ const uploadSuratFiles = async (
 
     try {
       // 1. SIMPAN AGENDA KE POSTGRESQL
-      const createResponse = await fetch(
+      const createResponse = await authFetch(
         `${API_BASE_URL}/api/agendas`,
         {
           method: 'POST',
@@ -538,7 +539,7 @@ const uploadSuratFiles = async (
 
       // 3. SIMPAN FILE PERTAMA KE surat_url POSTGRESQL
       if (uploadedUrls.length > 0) {
-        const updateResponse = await fetch(
+        const updateResponse = await authFetch(
           `${API_BASE_URL}/api/agendas/${encodeURIComponent(
             agendaData.id
           )}/surat-url`,
