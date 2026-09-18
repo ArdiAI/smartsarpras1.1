@@ -383,7 +383,8 @@ function normalizeDateOnly(
 
 export async function fetchTimelineEvents(
   year: number,
-  month: number
+  month: number,
+  includeBorrowings = false
 ): Promise<TimelineEvent[]> {
   const params =
     new URLSearchParams({
@@ -397,7 +398,7 @@ export async function fetchTimelineEvents(
 
       includeBorrowings:
         String(
-          SHOW_BORROWINGS
+          includeBorrowings
         ),
     });
 
@@ -526,7 +527,7 @@ export async function fetchTimelineEvents(
   // ===================================================
 
   if (
-    SHOW_BORROWINGS
+    includeBorrowings
   ) {
     for (
       const borrowing of
