@@ -122,13 +122,17 @@ export default function AgendaPage() {
       return false;
     }
 
+    if (!form.end_date) {
+      showToast('Tanggal selesai wajib diisi', 'error');
+      return false;
+    }
+
     if (!form.start_time) {
       showToast('Waktu mulai wajib diisi', 'error');
       return false;
     }
 
     if (
-      form.end_date &&
       form.end_date < form.event_date
     ) {
       showToast(
@@ -492,7 +496,7 @@ const uploadSuratFiles = async (
             location: form.location.trim(),
             event_date: form.event_date,
             end_date:
-              form.end_date || null,
+              form.end_date,
             start_time: form.start_time,
             end_time:
               form.end_time || null,
@@ -861,6 +865,7 @@ const uploadSuratFiles = async (
                 value={
                   form.event_date
                 }
+                required
                 onChange={(e) =>
                   set(
                     'event_date',
@@ -874,12 +879,14 @@ const uploadSuratFiles = async (
             {/* TANGGAL SELESAI */}
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Tanggal Selesai (opsional)
+                Tanggal Selesai *
               </label>
 
               <input
                 type="date"
                 value={form.end_date}
+                min={form.event_date || undefined}
+                required
                 onChange={(e) =>
                   set(
                     'end_date',
