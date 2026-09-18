@@ -5,6 +5,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   Loader2,
   MapPin,
@@ -39,6 +41,8 @@ export default function TimelineAdminPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [filterJenis, setFilterJenis] = useState<'all' | 'Agenda' | 'Peminjaman'>('all');
   const [filterColor, setFilterColor] = useState<EventColorCategory | 'all'>('all');
+  const [showAgenda, setShowAgenda] = useState(true);
+  const [showBorrowings, setShowBorrowings] = useState(true);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -60,11 +64,13 @@ export default function TimelineAdminPage() {
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
+      if (event.jenis === 'Agenda' && !showAgenda) return false;
+      if (event.jenis === 'Peminjaman' && !showBorrowings) return false;
       if (filterJenis !== 'all' && event.jenis !== filterJenis) return false;
       if (filterColor !== 'all' && event.colorCategory !== filterColor) return false;
       return true;
     });
-  }, [events, filterJenis, filterColor]);
+  }, [events, filterJenis, filterColor, showAgenda, showBorrowings]);
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, TimelineEvent[]> = {};
@@ -256,6 +262,34 @@ export default function TimelineAdminPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setShowAgenda((value) => !value)}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition',
+            showAgenda
+              ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300'
+              : 'border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
+          )}
+        >
+          {showAgenda ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          Agenda {showAgenda ? 'Ditampilkan' : 'Disembunyikan'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowBorrowings((value) => !value)}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition',
+            showBorrowings
+              ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-300'
+              : 'border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
+          )}
+        >
+          {showBorrowings ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          Peminjaman {showBorrowings ? 'Ditampilkan' : 'Disembunyikan'}
+        </button>
+
         <select
           value={filterJenis}
           onChange={(event) =>
