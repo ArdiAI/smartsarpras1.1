@@ -42,13 +42,20 @@ export default function TimelineAdminPage() {
   const [filterJenis, setFilterJenis] = useState<'all' | 'Agenda' | 'Peminjaman'>('all');
   const [filterColor, setFilterColor] = useState<EventColorCategory | 'all'>('all');
   const [showAgenda, setShowAgenda] = useState(true);
-  const [showBorrowings, setShowBorrowings] = useState(true);
+  const [showBorrowings, setShowBorrowings] = useState(false);
 
   const loadEvents = async () => {
     setLoading(true);
     try {
-      // Khusus admin: agenda + peminjaman.
-      const data = await fetchTimelineEvents(year, month, true);
+      // Peminjaman hanya dimuat jika Super Admin menampilkannya.
+      const includeBorrowings =
+        isSuperAdmin && showBorrowings;
+
+      const data = await fetchTimelineEvents(
+        year,
+        month,
+        includeBorrowings
+      );
       setEvents(data);
     } catch (error) {
       console.error('[TimelineAdminPage] load error:', error);
@@ -60,17 +67,36 @@ export default function TimelineAdminPage() {
 
   useEffect(() => {
     void loadEvents();
-  }, [year, month]);
+  }, [year, month, isSuperAdmin, showBorrowings]);
+
+  useEffect(() => {
+    if (
+      filterJenis === 'Peminjaman' &&
+      (!isSuperAdmin || !showBorrowings)
+    ) {
+      setFilterJenis('all');
+    }
+  }, [filterJenis, isSuperAdmin, showBorrowings]);
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       if (event.jenis === 'Agenda' && !showAgenda) return false;
-      if (event.jenis === 'Peminjaman' && !showBorrowings) return false;
+      if (
+        event.jenis === 'Peminjaman' &&
+        (!isSuperAdmin || !showBorrowings)
+      ) return false;
       if (filterJenis !== 'all' && event.jenis !== filterJenis) return false;
       if (filterColor !== 'all' && event.colorCategory !== filterColor) return false;
       return true;
     });
-  }, [events, filterJenis, filterColor, showAgenda, showBorrowings]);
+  }, [
+    events,
+    filterJenis,
+    filterColor,
+    showAgenda,
+    showBorrowings,
+    isSuperAdmin,
+  ]);
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, TimelineEvent[]> = {};
@@ -262,6 +288,8 @@ export default function TimelineAdminPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        {isSuperAdmin && (
+          <>
         <button
           type="button"
           onClick={() => setShowAgenda((value) => !value)}
@@ -290,6 +318,10 @@ export default function TimelineAdminPage() {
           Peminjaman {showBorrowings ? 'Ditampilkan' : 'Disembunyikan'}
         </button>
 
+
+          </>
+        )}
+
         <select
           value={filterJenis}
           onChange={(event) =>
@@ -299,7 +331,9 @@ export default function TimelineAdminPage() {
         >
           <option value="all">Semua Jenis</option>
           <option value="Agenda">Agenda</option>
-          <option value="Peminjaman">Peminjaman</option>
+          {isSuperAdmin && showBorrowings && (
+            <option value="Peminjaman">Peminjaman</option>
+          )}
         </select>
 
         <select
