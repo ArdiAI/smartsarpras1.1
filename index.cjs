@@ -10312,12 +10312,12 @@ app.get(
               bounds b
 
             WHERE
-              a.event_date >=
-                b.start_date
-
-              AND
               a.event_date <
                 b.next_month
+
+              AND
+              a.end_date >=
+                b.start_date
 
             ORDER BY
               a.event_date ASC,
