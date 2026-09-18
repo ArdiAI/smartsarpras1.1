@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+
+import { authFetch } from '../lib/authFetch';import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Upload, Send, Check, X, AlertCircle, Clock, Search, Download, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Proposal, PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '../types';
 import { uploadFileToDrive } from '../lib/upload';
@@ -40,7 +41,7 @@ export default function ProposalPage() {
 
   const fetchProposals = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/proposals`);
+      const response = await authFetch(`${API_BASE_URL}/api/proposals`);
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.ok) {
@@ -86,7 +87,7 @@ export default function ProposalPage() {
     let submitErrorMessage = '';
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/proposals`, {
+      const response = await authFetch(`${API_BASE_URL}/api/proposals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
