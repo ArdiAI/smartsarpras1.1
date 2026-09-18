@@ -7,6 +7,7 @@
 
 import {
   useEffect,
+  useState,
   type ReactNode,
 } from 'react';
 
@@ -17,6 +18,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import RequireAuth from './components/RequireAuth';
 import { showToast } from './components/Toast';
+import { fetchPublicFeatures } from './lib/publicFeatures';
 
 // PUBLIC / USER
 import LandingPage from './pages/LandingPage';
@@ -84,6 +86,74 @@ function PublicLayout({
 
       <Footer />
     </div>
+  );
+}
+
+
+function BorrowingFeatureRoute() {
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    enabled,
+    setEnabled,
+  ] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void fetchPublicFeatures()
+      .then((features) => {
+        if (mounted) {
+          setEnabled(
+            features.borrowingEnabled
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[App] gagal memuat public features:',
+          error
+        );
+
+        if (mounted) {
+          setEnabled(false);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-500">
+        Memuat...
+      </div>
+    );
+  }
+
+  if (!enabled) {
+    return (
+      <Navigate
+        to="/"
+        replace
+      />
+    );
+  }
+
+  return (
+    <PublicLayout>
+      <BorrowPage />
+    </PublicLayout>
   );
 }
 
@@ -309,9 +379,7 @@ export default function App() {
         <Route
           path="/pinjam"
           element={
-            <PublicLayout>
-              <BorrowPage />
-            </PublicLayout>
+            <BorrowingFeatureRoute />
           }
         />
 
