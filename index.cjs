@@ -165,6 +165,60 @@ app.post(
 );
 
 // =====================================================
+// PUBLIC FEATURE FLAGS
+// =====================================================
+
+app.get(
+  '/api/public/features',
+  async (_req, res) => {
+    try {
+      const result =
+        await pool.query(
+          `
+            SELECT key, value
+            FROM public.system_config
+            WHERE key IN (
+              'public_borrowing_enabled'
+            )
+          `
+        );
+
+      const map =
+        new Map(
+          result.rows.map(
+            (row) => [
+              row.key,
+              row.value,
+            ]
+          )
+        );
+
+      res.json({
+        ok: true,
+        data: {
+          borrowingEnabled:
+            map.get(
+              'public_borrowing_enabled'
+            ) === true,
+        },
+      });
+    } catch (error) {
+      console.error(
+        '[PUBLIC FEATURES] GET error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal memuat pengaturan fitur publik',
+      });
+    }
+  }
+);
+
+
+// =====================================================
 // HEALTH CHECK
 // =====================================================
 
@@ -14849,6 +14903,94 @@ app.get(
     }
   }
 );
+
+// =====================================================
+// ADMIN - PUBLIC FEATURE FLAGS
+// =====================================================
+
+app.patch(
+  '/api/admin/public-features/borrowing',
+  requireAdmin,
+  async (req, res) => {
+    try {
+      if (!req.isSuperAdmin) {
+        return res
+          .status(403)
+          .json({
+            ok: false,
+            message:
+              'Hanya Super Admin yang dapat mengubah visibilitas fitur peminjaman publik',
+          });
+      }
+
+      if (
+        typeof req.body?.enabled !==
+        'boolean'
+      ) {
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            message:
+              'Nilai enabled harus boolean',
+          });
+      }
+
+      const result =
+        await pool.query(
+          `
+            UPDATE public.system_config
+            SET
+              value = $1::jsonb,
+              updated_by = $2,
+              updated_at = NOW()
+            WHERE key =
+              'public_borrowing_enabled'
+            RETURNING key, value
+          `,
+          [
+            JSON.stringify(
+              req.body.enabled
+            ),
+            req.adminUser.id,
+          ]
+        );
+
+      if (
+        result.rowCount === 0
+      ) {
+        return res
+          .status(404)
+          .json({
+            ok: false,
+            message:
+              'Konfigurasi peminjaman publik tidak ditemukan',
+          });
+      }
+
+      res.json({
+        ok: true,
+        data: {
+          borrowingEnabled:
+            result.rows[0]
+              .value === true,
+        },
+      });
+    } catch (error) {
+      console.error(
+        '[PUBLIC FEATURES] PATCH error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal memperbarui visibilitas peminjaman publik',
+      });
+    }
+  }
+);
+
 
 // =====================================================
 // ADMIN - SYSTEM CONFIG
