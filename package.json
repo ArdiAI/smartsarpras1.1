@@ -8,7 +8,12 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "server": "node index.cjs",
-    "check:backend": "node --check index.cjs"
+    "check:backend": "node --check index.cjs",
+    "check:auth": "node --check auth.cjs",
+    "check:db": "node --check db.cjs",
+    "check": "npm run check:backend && npm run check:auth && npm run check:db && npm run build",
+    "backup:db": "node scripts/backup-db.cjs",
+    "restore:db": "node scripts/restore-db.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
