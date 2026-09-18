@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const multer = require('multer');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const pool = require('./db.cjs');
 
 const {
@@ -15,6 +16,7 @@ const {
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
+const requestContext = new AsyncLocalStorage();
 
 if (
   String(
@@ -63,6 +65,26 @@ app.use(
 );
 
 app.use(express.json());
+
+app.use(
+  (
+    req,
+    _res,
+    next
+  ) => {
+    requestContext.run(
+      {
+        authorization:
+          String(
+            req.headers
+              .authorization ||
+              ''
+          ),
+      },
+      next
+    );
+  }
+);
 
 
 function createRateLimiter({
@@ -5604,7 +5626,10 @@ app.post(
                     process.env.SUPABASE_ANON_KEY,
 
                   Authorization:
-                    `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+                    String(
+                      req.headers.authorization ||
+                      ''
+                    ),
                 },
 
                 body: JSON.stringify({
@@ -5697,6 +5722,25 @@ async function sendBorrowAdminEmail(payload) {
       return;
     }
 
+    const authorization =
+      String(
+        requestContext
+          .getStore()
+          ?.authorization ||
+          ''
+      );
+
+    if (
+      !authorization.startsWith(
+        'Bearer '
+      )
+    ) {
+      console.warn(
+        '[BORROW ADMIN EMAIL] user session tidak tersedia'
+      );
+      return;
+    }
+
     const response = await fetch(
       `${process.env.SUPABASE_URL}/functions/v1/send-borrowing-email`,
       {
@@ -5709,7 +5753,7 @@ async function sendBorrowAdminEmail(payload) {
             process.env.SUPABASE_ANON_KEY,
 
           Authorization:
-            `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+            authorization,
         },
 
         body:
