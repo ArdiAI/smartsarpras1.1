@@ -218,10 +218,20 @@ export default function AgendaAdminPage() {
 
     if (
       !form.title ||
-      !form.event_date
+      !form.event_date ||
+      !form.end_date
     ) {
       showToast(
-        'Judul dan tanggal mulai wajib diisi',
+        'Judul, tanggal mulai, dan tanggal selesai wajib diisi',
+        'warning'
+      );
+
+      return;
+    }
+
+    if (form.end_date < form.event_date) {
+      showToast(
+        'Tanggal selesai tidak boleh sebelum tanggal mulai',
         'warning'
       );
 
@@ -259,8 +269,7 @@ export default function AgendaAdminPage() {
               form.event_date,
 
             end_date:
-              form.end_date ||
-              null,
+              form.end_date,
 
             start_time:
               form.start_time ||
@@ -509,7 +518,7 @@ export default function AgendaAdminPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Tanggal Selesai
+              Tanggal Selesai *
             </label>
 
             <input
@@ -518,9 +527,11 @@ export default function AgendaAdminPage() {
               value={
                 form.end_date
               }
+              min={form.event_date || undefined}
               onChange={
                 handleChange
               }
+              required
               className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
