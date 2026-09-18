@@ -444,7 +444,10 @@ app.get('/api/health', async (req, res) => {
 // DATABASE SUMMARY
 // =====================================================
 
-app.get('/api/db-summary', async (req, res) => {
+app.get(
+  '/api/db-summary',
+  requireAdmin,
+  async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT table_name
@@ -1817,7 +1820,10 @@ app.get('/api/storage-status', (req, res) => {
 // Data disimpan di PostgreSQL, dokumen di Google Drive.
 // =====================================================
 
-app.get('/api/proposals', async (req, res) => {
+app.get(
+  '/api/proposals',
+  requireAuth,
+  async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -2183,7 +2189,10 @@ app.patch(
 // =====================================================
 
 // Ambil 5 laporan terakhir berdasarkan email pelapor
-app.get('/api/reports/recent', async (req, res) => {
+app.get(
+  '/api/reports/recent',
+  requireAuth,
+  async (req, res) => {
   try {
     const email = String(req.query.email || '').trim();
 
@@ -10530,6 +10539,7 @@ app.get(
 
 app.get(
   '/api/timeline/events',
+  requireAuth,
   async (req, res) => {
     try {
       const year = Number(
@@ -10753,6 +10763,7 @@ app.get(
 
 app.get(
   '/api/timeline/counts',
+  requireAuth,
   async (req, res) => {
     try {
       const today =
@@ -13759,6 +13770,7 @@ app.get(
 
 app.get(
   '/api/rekap',
+  requireAuth,
   async (req, res) => {
     try {
       const result =
