@@ -1188,11 +1188,19 @@ app.post(
         description,
       } = req.body;
 
-      if (!title || !event_date) {
+      if (!title || !event_date || !end_date) {
         return res.status(400).json({
           ok: false,
           message:
-            'Judul dan tanggal mulai wajib diisi',
+            'Judul, tanggal mulai, dan tanggal selesai wajib diisi',
+        });
+      }
+
+      if (end_date < event_date) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Tanggal selesai tidak boleh sebelum tanggal mulai',
         });
       }
 
@@ -1230,7 +1238,7 @@ app.post(
           email || null,
           location || null,
           event_date,
-          end_date || null,
+          end_date,
           start_time || null,
           end_time || null,
           description || null,
@@ -1770,11 +1778,19 @@ app.post('/api/agendas', async (req, res) => {
     if (
       typeof title !== 'string' ||
       !title.trim() ||
-      !event_date
+      !event_date ||
+      !end_date
     ) {
       return res.status(400).json({
         ok: false,
-        message: 'Judul dan tanggal mulai wajib diisi',
+        message: 'Judul, tanggal mulai, dan tanggal selesai wajib diisi',
+      });
+    }
+
+    if (end_date < event_date) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Tanggal selesai tidak boleh sebelum tanggal mulai',
       });
     }
 
