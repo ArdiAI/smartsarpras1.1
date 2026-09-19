@@ -13,7 +13,8 @@
     "check:db": "node --check db.cjs",
     "check": "npm run check:backend && npm run check:auth && npm run check:db && npm run build",
     "backup:db": "node scripts/backup-db.cjs",
-    "restore:db": "node scripts/restore-db.cjs"
+    "restore:db": "node scripts/restore-db.cjs",
+    "acceptance": "node scripts/acceptance-test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
