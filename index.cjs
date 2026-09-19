@@ -4932,14 +4932,87 @@ app.post(
             });
           }
 
+          const reservedResult =
+            await client.query(
+              `
+                SELECT
+                  COALESCE(
+                    SUM(
+                      bi.quantity
+                    ),
+                    0
+                  )::int
+                    AS reserved_quantity
+                FROM public.borrowing_items bi
+                INNER JOIN public.borrowings b
+                  ON b.id = bi.borrowing_id
+                WHERE bi.inventory_id = $1
+                  AND b.status IN (
+                    'pending',
+                    'approved'
+                  )
+                  AND tsrange(
+                    (
+                      b.borrow_date +
+                      COALESCE(
+                        b.start_time,
+                        TIME '00:00'
+                      )
+                    )::timestamp,
+                    (
+                      COALESCE(
+                        b.return_date,
+                        b.borrow_date
+                      ) +
+                      COALESCE(
+                        b.end_time,
+                        TIME '23:59:59'
+                      )
+                    )::timestamp,
+                    '[)'
+                  ) && tsrange(
+                    (
+                      $2::date +
+                      $4::time
+                    )::timestamp,
+                    (
+                      $3::date +
+                      $5::time
+                    )::timestamp,
+                    '[)'
+                  )
+              `,
+              [
+                inventoryId,
+                borrow_date,
+                return_date,
+                cleanStartTime,
+                cleanEndTime,
+              ]
+            );
+
+          const reservedQuantity =
+            Number(
+              reservedResult.rows[0]
+                ?.reserved_quantity ??
+                0
+            );
+
+          const effectiveAvailable =
+            Number(
+              inv.available_quantity ??
+              0
+            ) -
+            reservedQuantity;
+
           if (
-            Number(inv.available_quantity ?? 0) <
+            effectiveAvailable <
             quantity
           ) {
-            return res.status(400).json({
+            return res.status(409).json({
               ok: false,
               message:
-                `Stok "${inv.name}" tidak mencukupi`,
+                `Stok "${inv.name}" pada jadwal tersebut tidak mencukupi`,
             });
           }
 
