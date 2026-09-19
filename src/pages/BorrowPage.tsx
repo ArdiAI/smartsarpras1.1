@@ -51,6 +51,7 @@ interface CartItem {
   item_type: 'barang' | 'fasilitas';
   item_name: string;
   quantity: number;
+  max_quantity?: number | null;
 }
 
 interface FormState {
@@ -423,6 +424,21 @@ export default function BorrowPage() {
   const addToCart = (
     item: CartItem
   ) => {
+    if (
+      cart.some(
+        (cartItem) =>
+          cartItem.item_type !==
+          item.item_type
+      )
+    ) {
+      showToast(
+        'Barang dan fasilitas tidak boleh dicampur dalam satu pengajuan',
+        'error'
+      );
+
+      return;
+    }
+
     setCart(
       (previous) => {
         const existing =
@@ -433,6 +449,23 @@ export default function BorrowPage() {
           );
 
         if (existing) {
+          const maxQuantity =
+            existing.max_quantity ??
+            null;
+
+          if (
+            maxQuantity !== null &&
+            existing.quantity >=
+              maxQuantity
+          ) {
+            showToast(
+              'Jumlah sudah mencapai batas ketersediaan',
+              'warning'
+            );
+
+            return previous;
+          }
+
           return previous.map(
             (cartItem) =>
               cartItem.key ===
@@ -479,18 +512,43 @@ export default function BorrowPage() {
     setCart(
       (previous) =>
         previous.map(
-          (item) =>
-            item.key === key
-              ? {
-                  ...item,
-                  quantity:
-                    Math.max(
-                      1,
-                      item.quantity +
-                        delta
-                    ),
-                }
-              : item
+          (item) => {
+            if (
+              item.key !== key
+            ) {
+              return item;
+            }
+
+            const requested =
+              Math.max(
+                1,
+                item.quantity +
+                  delta
+              );
+
+            const maxQuantity =
+              item.max_quantity ??
+              null;
+
+            if (
+              maxQuantity !== null &&
+              requested >
+                maxQuantity
+            ) {
+              showToast(
+                'Jumlah melebihi ketersediaan',
+                'warning'
+              );
+
+              return item;
+            }
+
+            return {
+              ...item,
+              quantity:
+                requested,
+            };
+          }
         )
     );
   };
@@ -627,6 +685,32 @@ export default function BorrowPage() {
       ) {
         showToast(
           'Tanggal kembali tidak boleh sebelum tanggal pinjam',
+          'error'
+        );
+
+        return false;
+      }
+
+      if (
+        !form.start_time ||
+        !form.end_time
+      ) {
+        showToast(
+          'Jam mulai dan jam selesai wajib diisi',
+          'error'
+        );
+
+        return false;
+      }
+
+      if (
+        form.borrow_date ===
+          form.return_date &&
+        form.end_time <=
+          form.start_time
+      ) {
+        showToast(
+          'Jam selesai harus setelah jam mulai',
           'error'
         );
 
@@ -1069,6 +1153,9 @@ export default function BorrowPage() {
 
                                   quantity:
                                     1,
+
+                                  max_quantity:
+                                    item.available_quantity,
                                 }
                               )
                             }
@@ -1128,6 +1215,9 @@ export default function BorrowPage() {
                                     facility.name,
 
                                   quantity:
+                                    1,
+
+                                  max_quantity:
                                     1,
                                 }
                               )
@@ -1437,6 +1527,8 @@ export default function BorrowPage() {
                           .value
                       )
                     }
+                    required
+                    aria-label="Jam mulai"
                     className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
 
@@ -1455,6 +1547,8 @@ export default function BorrowPage() {
                           .value
                       )
                     }
+                    required
+                    aria-label="Jam selesai"
                     className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
                 </div>
