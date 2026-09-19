@@ -742,7 +742,7 @@ app.post(
           description || null,
           location || null,
           capacityValue,
-          image_url || null,
+          image_url.trim(),
           facility_type || null,
           category || null,
           department || null,
@@ -2268,11 +2268,13 @@ app.post(
       typeof description !== 'string' ||
       !description.trim() ||
       typeof location !== 'string' ||
-      !location.trim()
+      !location.trim() ||
+      typeof image_url !== 'string' ||
+      !image_url.trim()
     ) {
       return res.status(400).json({
         ok: false,
-        message: 'Data laporan belum lengkap',
+        message: 'Data laporan dan foto bukti wajib diisi',
       });
     }
 
