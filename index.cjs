@@ -4736,6 +4736,12 @@ app.post(
       const cleanNotes =
         String(notes ?? '').trim();
 
+      const cleanStartTime =
+        String(start_time ?? '').trim();
+
+      const cleanEndTime =
+        String(end_time ?? '').trim();
+
       if (!cleanName) {
         return res.status(400).json({
           ok: false,
@@ -4779,6 +4785,39 @@ app.post(
           ok: false,
           message:
             'Tanggal kembali tidak boleh sebelum tanggal pinjam',
+        });
+      }
+
+      if (
+        !cleanStartTime ||
+        !cleanEndTime
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Jam mulai dan jam selesai wajib diisi',
+        });
+      }
+
+      if (
+        !/^\d{2}:\d{2}(:\d{2})?$/.test(cleanStartTime) ||
+        !/^\d{2}:\d{2}(:\d{2})?$/.test(cleanEndTime)
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Format jam peminjaman tidak valid',
+        });
+      }
+
+      if (
+        borrow_date === return_date &&
+        cleanEndTime <= cleanStartTime
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Jam selesai harus setelah jam mulai',
         });
       }
 
@@ -4947,6 +4986,67 @@ app.post(
             });
           }
 
+          const conflictResult =
+            await client.query(
+              `
+                SELECT 1
+                FROM public.borrowing_items bi
+                INNER JOIN public.borrowings b
+                  ON b.id = bi.borrowing_id
+                WHERE bi.facility_id = $1
+                  AND b.status IN ('pending', 'approved')
+                  AND tsrange(
+                    (
+                      b.borrow_date +
+                      COALESCE(
+                        b.start_time,
+                        TIME '00:00'
+                      )
+                    )::timestamp,
+                    (
+                      COALESCE(
+                        b.return_date,
+                        b.borrow_date
+                      ) +
+                      COALESCE(
+                        b.end_time,
+                        TIME '23:59:59'
+                      )
+                    )::timestamp,
+                    '[)'
+                  ) && tsrange(
+                    (
+                      $2::date +
+                      $4::time
+                    )::timestamp,
+                    (
+                      $3::date +
+                      $5::time
+                    )::timestamp,
+                    '[)'
+                  )
+                LIMIT 1
+              `,
+              [
+                facilityId,
+                borrow_date,
+                return_date,
+                cleanStartTime,
+                cleanEndTime,
+              ]
+            );
+
+          if (
+            conflictResult.rowCount >
+            0
+          ) {
+            return res.status(409).json({
+              ok: false,
+              message:
+                `Fasilitas "${fac.name}" sudah memiliki pengajuan pada jadwal tersebut`,
+            });
+          }
+
           normalizedItems.push({
             inventory_id: null,
             facility_id: fac.id,
@@ -5017,6 +5117,17 @@ app.post(
           (item) =>
             Boolean(item.facility_id)
         );
+
+      if (
+        hasBarang &&
+        hasFasilitas
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Barang dan fasilitas tidak boleh dicampur dalam satu pengajuan',
+        });
+      }
 
       let workflow = null;
 
@@ -5320,8 +5431,8 @@ app.post(
             cleanPhone || null,
             borrow_date,
             return_date,
-            start_time || null,
-            end_time || null,
+            cleanStartTime,
+            cleanEndTime,
             cleanPurpose,
             cleanNotes || null,
             borrowingItemType,
