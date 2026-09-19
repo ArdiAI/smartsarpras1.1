@@ -10880,25 +10880,15 @@ app.get(
                 bounds b
 
               WHERE
-                (
-                  br.borrow_date >=
-                    b.start_date
+                br.borrow_date <
+                  b.next_month
 
-                  AND
-                  br.borrow_date <
-                    b.next_month
-                )
-
-                OR
-
-                (
-                  br.return_date >=
-                    b.start_date
-
-                  AND
-                  br.return_date <
-                    b.next_month
-                )
+                AND
+                COALESCE(
+                  br.return_date,
+                  br.borrow_date
+                ) >=
+                  b.start_date
 
               ORDER BY
                 br.borrow_date ASC
@@ -10994,16 +10984,21 @@ app.get(
             SELECT
               COUNT(*) FILTER (
                 WHERE
-                  event_date = $1::date
+                  event_date <=
+                    $1::date
+                  AND
+                  end_date >=
+                    $1::date
               )::int
                 AS today_count,
 
               COUNT(*) FILTER (
                 WHERE
-                  event_date >= $1::date
-
+                  event_date <=
+                    $2::date
                   AND
-                  event_date <= $2::date
+                  end_date >=
+                    $1::date
               )::int
                 AS week_count
 
