@@ -201,6 +201,86 @@ function registerSuperAdminAudit(
 }
 
 
+async function attachOptionalAdminContext(
+  req,
+  res,
+  userId
+) {
+  const adminResult =
+    await pool.query(
+      `
+        SELECT
+          id,
+          user_id,
+          email,
+          name,
+          is_active
+        FROM public.admin_users
+        WHERE user_id = $1
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+  const admin =
+    adminResult.rows[0];
+
+  if (
+    !admin ||
+    admin.is_active !== true
+  ) {
+    return;
+  }
+
+  const rolesResult =
+    await pool.query(
+      `
+        SELECT
+          r.id,
+          r.name
+        FROM public.admin_user_roles aur
+        INNER JOIN public.roles r
+          ON r.id = aur.role_id
+        WHERE aur.admin_user_id = $1
+          AND COALESCE(
+            r.is_active,
+            true
+          ) = true
+      `,
+      [admin.id]
+    );
+
+  const roles =
+    rolesResult.rows;
+
+  req.adminUser =
+    admin;
+
+  req.adminRoles =
+    roles;
+
+  req.isSuperAdmin =
+    roles.some(
+      (role) =>
+        String(
+          role.name || ''
+        )
+          .trim()
+          .toLowerCase()
+          .replace(
+            /[\s_-]+/g,
+            ''
+          ) ===
+        'superadmin'
+    );
+
+  registerSuperAdminAudit(
+    req,
+    res
+  );
+}
+
+
 // =====================================================
 // REQUIRE AUTH
 // User biasa yang sudah login Supabase
@@ -261,6 +341,12 @@ async function requireAuth(
     // req.authUser.id
     req.authUser =
       user;
+
+    await attachOptionalAdminContext(
+      req,
+      res,
+      user.id
+    );
 
     next();
 
