@@ -15307,6 +15307,15 @@ app.get(
             headers: {
               'Content-Type':
                 'application/json',
+
+              apikey:
+                process.env.SUPABASE_ANON_KEY,
+
+              Authorization:
+                String(
+                  req.headers.authorization ||
+                  ''
+                ),
             },
           }
         );
