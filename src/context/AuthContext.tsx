@@ -663,11 +663,31 @@ export function AuthProvider({
       (
         module: string,
         action: string
-      ) =>
-        permissions.has(
-          `${module}:${action}`
-        ),
-      [permissions]
+      ) => {
+        const superAdmin =
+          userRoleNames.some(
+            (roleName) =>
+              roleName
+                .trim()
+                .toLowerCase()
+                .replace(
+                  /[\s_-]+/g,
+                  ''
+                ) ===
+              'superadmin'
+          );
+
+        return (
+          superAdmin ||
+          permissions.has(
+            `${module}:${action}`
+          )
+        );
+      },
+      [
+        permissions,
+        userRoleNames,
+      ]
     );
 
 
