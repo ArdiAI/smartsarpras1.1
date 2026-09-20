@@ -204,7 +204,8 @@ function registerSuperAdminAudit(
 async function attachOptionalAdminContext(
   req,
   res,
-  userId
+  userId,
+  userEmail
 ) {
   const adminResult =
     await pool.query(
@@ -216,10 +217,24 @@ async function attachOptionalAdminContext(
           name,
           is_active
         FROM public.admin_users
-        WHERE user_id = $1
+        WHERE
+          user_id = $1
+          OR (
+            user_id IS NULL
+            AND $2::text IS NOT NULL
+            AND lower(email) = lower($2)
+          )
+        ORDER BY
+          CASE
+            WHEN user_id = $1 THEN 0
+            ELSE 1
+          END
         LIMIT 1
       `,
-      [userId]
+      [
+        userId,
+        userEmail ?? null,
+      ]
     );
 
   const admin =
@@ -345,7 +360,8 @@ async function requireAuth(
     await attachOptionalAdminContext(
       req,
       res,
-      user.id
+      user.id,
+      user.email
     );
 
     next();
@@ -437,16 +453,50 @@ async function requireAdmin(
 
           WHERE
             user_id = $1
+            OR (
+              user_id IS NULL
+              AND $2::text IS NOT NULL
+              AND lower(email) = lower($2)
+            )
+
+          ORDER BY
+            CASE
+              WHEN user_id = $1 THEN 0
+              ELSE 1
+            END
 
           LIMIT 1
         `,
         [
           user.id,
+          user.email ?? null,
         ]
       );
 
     const admin =
       adminResult.rows[0];
+
+    if (
+      admin &&
+      !admin.user_id &&
+      admin.is_active === true
+    ) {
+      await pool.query(
+        `
+          UPDATE public.admin_users
+          SET user_id = $1
+          WHERE id = $2
+            AND user_id IS NULL
+        `,
+        [
+          user.id,
+          admin.id,
+        ]
+      );
+
+      admin.user_id =
+        user.id;
+    }
 
     if (
       !admin ||
