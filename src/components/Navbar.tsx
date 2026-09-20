@@ -50,7 +50,13 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { user, permissions, signOut } = useAuth();
+  const {
+    user,
+    adminProfile,
+    permissions,
+    isSuperAdmin,
+    signOut,
+  } = useAuth();
   const [open, setOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   const [borrowingEnabled, setBorrowingEnabled] = useState(false);
@@ -115,7 +121,7 @@ export default function Navbar() {
 
     return (
       <div className={cn('flex items-center gap-2', mobile && 'w-full flex-col')}>
-        {permissions.size > 0 && (
+        {(adminProfile || isSuperAdmin || permissions.size > 0) && (
           <button
             onClick={() => { setOpen(false); navigate('/admin/dashboard'); }}
             className={cn('inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800', mobile && 'w-full justify-center')}
