@@ -1,3 +1,4 @@
+import RemoteImage from '../../../components/RemoteImage';
 import {
   useCallback,
   useEffect,
@@ -655,7 +656,7 @@ export default function BorrowingGuideAdminPage() {
 
             <label className="block cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-brand-400 dark:border-slate-700 dark:bg-slate-800/60">
               {selectedFile ? (
-                <img
+                <RemoteImage
                   src={
                     URL.createObjectURL(
                       selectedFile
@@ -665,7 +666,7 @@ export default function BorrowingGuideAdminPage() {
                   className="aspect-[4/3] w-full object-contain"
                 />
               ) : form.image_url ? (
-                <img
+                <RemoteImage
                   src={
                     form.image_url
                   }
@@ -768,7 +769,7 @@ export default function BorrowingGuideAdminPage() {
                   }
                   className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center"
                 >
-                  <img
+                  <RemoteImage
                     src={
                       step.image_url
                     }
