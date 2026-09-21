@@ -32,6 +32,7 @@ import ReportPage from './pages/ReportPage';
 import AboutPage from './pages/AboutPage';
 import AspirasiPage from './pages/AspirasiPage';
 import BorrowingGuidePage from './pages/BorrowingGuidePage';
+import BorrowingGuidePage from './pages/BorrowingGuidePage';
 
 // AUTH
 import AuthPage from './pages/AuthPage';
@@ -61,6 +62,7 @@ import ApprovalWorkflowPage from './pages/admin/superadmin/ApprovalWorkflowPage'
 import SystemConfigPage from './pages/admin/superadmin/SystemConfigPage';
 import ApproverEmailsPage from './pages/admin/superadmin/ApproverEmailsPage';
 import SystemSettingsPage from './pages/admin/superadmin/SystemSettingsPage';
+import BorrowingGuideAdminPage from './pages/admin/superadmin/BorrowingGuideAdminPage';
 import BorrowingGuideAdminPage from './pages/admin/superadmin/BorrowingGuideAdminPage';
 
 // KAVLING
@@ -288,6 +290,37 @@ function SuperAdminRoute({
 }
 
 
+function SuperAdminRoute({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const {
+    loading,
+    isSuperAdmin,
+  } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        Memuat...
+      </div>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <Navigate
+        to="/admin/dashboard"
+        replace
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
+
+
 // ============================================================
 // ADMIN AUTH CHECK
 // ============================================================
@@ -457,6 +490,15 @@ export default function App() {
           element={
             <PublicLayout>
               <ReportPage />
+            </PublicLayout>
+          }
+        />
+
+        <Route
+          path="/panduan-peminjaman"
+          element={
+            <PublicLayout>
+              <BorrowingGuidePage />
             </PublicLayout>
           }
         />
@@ -705,6 +747,15 @@ export default function App() {
               <PermissionRoute module="system_config">
                 <ActivityLogsPage />
               </PermissionRoute>
+            }
+          />
+
+          <Route
+            path="borrowing-guide"
+            element={
+              <SuperAdminRoute>
+                <BorrowingGuideAdminPage />
+              </SuperAdminRoute>
             }
           />
 
