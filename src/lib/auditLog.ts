@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSessionToken } from './appSession';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ??
@@ -34,20 +34,8 @@ export async function logActivity(
   input: AuditLogInput
 ): Promise<void> {
   try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error(
-        '[auditLog] gagal membaca session:',
-        error.message
-      );
-      return;
-    }
-
-    const token = session?.access_token;
+    const token =
+      getSessionToken();
 
     if (!token) {
       console.warn(
