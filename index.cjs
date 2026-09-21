@@ -325,6 +325,11 @@ app.post(
         adminMatch.rows[0]?.user_id ??
         null;
 
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
       const result =
         await pool.query(
           `
@@ -343,13 +348,7 @@ app.post(
                 gen_random_uuid()
               ),
               $2,
-              extensions.crypt(
-                $3,
-                extensions.gen_salt(
-                  'bf',
-                  12
-                )
-              ),
+              $3,
               $4,
               true,
               NOW(),
@@ -364,7 +363,7 @@ app.post(
           [
             preferredId,
             email,
-            password,
+            passwordHash,
             name,
           ]
         );
@@ -416,33 +415,41 @@ app.post(
             SELECT
               id,
               email,
-              name
+              name,
+              password_hash
             FROM public.app_users
             WHERE lower(email) = $1
               AND is_active = true
-              AND password_hash =
-                extensions.crypt(
-                  $2,
-                  password_hash
-                )
             LIMIT 1
           `,
           [
             email,
-            password,
           ]
         );
 
       const user =
         userResult.rows[0];
 
-      if (!user) {
+      const passwordValid =
+        user
+          ? await verifyPassword(
+              password,
+              user.password_hash
+            )
+          : false;
+
+      if (
+        !user ||
+        !passwordValid
+      ) {
         return res.status(401).json({
           ok: false,
           message:
-            'Email atau password salah. Jika ini pertama kali memakai auth baru, pilih Daftar terlebih dahulu.',
+            'Email atau password salah',
         });
       }
+
+      delete user.password_hash;
 
       const token =
         createSessionToken();
