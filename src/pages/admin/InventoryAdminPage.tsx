@@ -1,3 +1,4 @@
+import RemoteImage from '../../components/RemoteImage';
 ﻿import { useEffect, useState } from 'react';
 import { uploadFileToDrive } from '../../lib/upload';
 import { showToast } from '../../components/Toast';
@@ -1161,7 +1162,7 @@ export default function InventoryAdminPage() {
                             className="block"
                           >
 
-                            <img
+                            <RemoteImage
                               src={
                                 item.image_url
                               }
@@ -1668,7 +1669,7 @@ export default function InventoryAdminPage() {
 
                       <div className="relative inline-block">
 
-                        <img
+                        <RemoteImage
                           src={
                             imgPreview
                           }
@@ -1856,7 +1857,7 @@ export default function InventoryAdminPage() {
 
           </button>
 
-          <img
+          <RemoteImage
             src={
               previewImg
             }
