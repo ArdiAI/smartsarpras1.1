@@ -206,14 +206,14 @@ async function attachOptionalAdminContext(
         WHERE
           user_id = $1
           OR (
-            user_id IS NULL
-            AND $2::text IS NOT NULL
+            $2::text IS NOT NULL
             AND lower(email) = lower($2)
           )
         ORDER BY
           CASE
             WHEN user_id = $1 THEN 0
-            ELSE 1
+            WHEN lower(email) = lower($2) THEN 1
+            ELSE 2
           END
         LIMIT 1
       `,
@@ -546,15 +546,15 @@ async function requireAdmin(
           WHERE
             user_id = $1
             OR (
-              user_id IS NULL
-              AND $2::text IS NOT NULL
+              $2::text IS NOT NULL
               AND lower(email) = lower($2)
             )
 
           ORDER BY
             CASE
               WHEN user_id = $1 THEN 0
-              ELSE 1
+              WHEN lower(email) = lower($2) THEN 1
+              ELSE 2
             END
 
           LIMIT 1
@@ -567,28 +567,6 @@ async function requireAdmin(
 
     const admin =
       adminResult.rows[0];
-
-    if (
-      admin &&
-      !admin.user_id &&
-      admin.is_active === true
-    ) {
-      await pool.query(
-        `
-          UPDATE public.admin_users
-          SET user_id = $1
-          WHERE id = $2
-            AND user_id IS NULL
-        `,
-        [
-          user.id,
-          admin.id,
-        ]
-      );
-
-      admin.user_id =
-        user.id;
-    }
 
     if (
       !admin ||
