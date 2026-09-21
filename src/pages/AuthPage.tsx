@@ -168,7 +168,7 @@ export default function AuthPage() {
         }
 
         showToast(
-          'Akun auth baru berhasil dibuat. Silakan login.',
+          'Akun berhasil dibuat. Silakan login.',
           'success'
         );
 
@@ -251,18 +251,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {mode ===
-            'register' && (
-            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs leading-relaxed text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
-              Auth baru tidak memakai
-              Supabase. Jika sebelumnya
-              punya akun lama, daftar
-              sekali menggunakan email
-              yang sama. Akun admin akan
-              ditautkan kembali otomatis.
-            </div>
-          )}
-
           <form
             onSubmit={
               handleSubmit
@@ -344,7 +332,7 @@ export default function AuthPage() {
                     type="button"
                     onClick={() =>
                       showToast(
-                        'Untuk reset password auth baru, hubungi Super Admin.',
+                        'Untuk reset password, hubungi Super Admin.',
                         'info'
                       )
                     }
