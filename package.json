@@ -11,12 +11,14 @@
     "check:backend": "node --check index.cjs",
     "check:auth": "node --check auth.cjs",
     "check:db": "node --check db.cjs",
-    "check": "npm run check:backend && npm run check:auth && npm run check:app-auth && npm run check:db && npm run build",
+    "check": "npm run check:backend && npm run check:auth && npm run check:app-auth && npm run check:password-reset && npm run check:db && npm run build",
     "backup:db": "node scripts/backup-db.cjs",
     "restore:db": "node scripts/restore-db.cjs",
     "acceptance": "node scripts/acceptance-test.cjs",
     "check:app-auth": "node --check app-auth.cjs",
-    "admin:set-password": "node scripts/set-admin-password.cjs"
+    "admin:set-password": "node scripts/set-admin-password.cjs",
+    "check:password-reset": "node --check password-reset.cjs",
+    "migrate:local-auth": "node scripts/apply-local-auth-migration.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
