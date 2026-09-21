@@ -1,3 +1,4 @@
+import RemoteImage from '../../components/RemoteImage';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { uploadFileToDrive } from '../../lib/upload';
@@ -730,7 +731,7 @@ export default function FacilitiesAdminPage() {
                     }
                     className="block h-40 w-full"
                   >
-                    <img
+                    <RemoteImage
                       src={
                         f.image_url
                       }
@@ -1087,7 +1088,7 @@ export default function FacilitiesAdminPage() {
                   <div className="flex-1">
                     {imgPreview ? (
                       <div className="relative inline-block">
-                        <img
+                        <RemoteImage
                           src={
                             imgPreview
                           }
@@ -1242,7 +1243,7 @@ export default function FacilitiesAdminPage() {
             <X className="h-6 w-6" />
           </button>
 
-          <img
+          <RemoteImage
             src={previewImg}
             alt="preview"
             className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
