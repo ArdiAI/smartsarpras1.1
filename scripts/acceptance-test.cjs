@@ -148,11 +148,45 @@ async function request(
     }
   );
 
+  const publicPaths = [
+    '/api/timeline/events?year=2026&month=9',
+    '/api/reports/recent?email=test@example.com',
+    '/api/kavling/options',
+  ];
+
+  for (
+    const path of
+    publicPaths
+  ) {
+    await runCheck(
+      `Public without login: ${path.split('?')[0]}`,
+      async () => {
+        const {
+          response,
+          body,
+        } =
+          await request(
+            path
+          );
+
+        if (
+          !response.ok ||
+          body?.ok !== true
+        ) {
+          throw new Error(
+            `HTTP ${response.status}`
+          );
+        }
+
+        return 'akses publik OK';
+      }
+    );
+  }
+
   const protectedPaths = [
     '/api/proposals',
     '/api/rekap',
-    '/api/timeline/events?year=2026&month=9',
-    '/api/reports/recent?email=test@example.com',
+    '/api/admin/me',
   ];
 
   if (!accessToken) {
@@ -161,7 +195,7 @@ async function request(
       protectedPaths
     ) {
       await runCheck(
-        `Protected without token: ${path.split('?')[0]}`,
+        `Admin/protected without token: ${path}`,
         async () => {
           const {
             response,
@@ -185,7 +219,7 @@ async function request(
     }
 
     console.log(
-      '\nINFO  Set ACCEPTANCE_ACCESS_TOKEN untuk menambah smoke test route authenticated.'
+      '\nINFO  User publik tidak memerlukan akun. Set ACCEPTANCE_ACCESS_TOKEN hanya untuk smoke test panel admin.'
     );
   } else {
     await runCheck(
