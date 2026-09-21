@@ -258,6 +258,7 @@ app.post(
         'inventory',
         'fasilitas',
         'tim_pengelola',
+        'panduan_peminjaman',
       ];
 
       if (!category) {
@@ -271,6 +272,17 @@ app.post(
         return res.status(400).json({
           ok: false,
           message: 'Kategori file tidak valid',
+        });
+      }
+
+      if (
+        category === 'panduan_peminjaman' &&
+        !req.isSuperAdmin
+      ) {
+        return res.status(403).json({
+          ok: false,
+          message:
+            'Hanya Super Admin yang dapat mengunggah gambar panduan peminjaman',
         });
       }
 
@@ -15615,6 +15627,399 @@ app.patch(
     }
   }
 );
+
+// =====================================================
+// BORROWING GUIDE
+// =====================================================
+
+// Panduan yang tampil ke user.
+// Tetap wajib login karena seluruh area publik aplikasi memakai RequireAuth.
+app.get(
+  '/api/borrowing-guide',
+  requireAuth,
+  async (_req, res) => {
+    try {
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              title,
+              description,
+              image_url,
+              sort_order
+            FROM public.borrowing_guide_steps
+            WHERE is_active = true
+            ORDER BY
+              sort_order ASC,
+              created_at ASC
+          `
+        );
+
+      res.json({
+        ok: true,
+        data: result.rows,
+      });
+    } catch (error) {
+      console.error(
+        '[BORROWING GUIDE] GET error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal memuat panduan peminjaman',
+      });
+    }
+  }
+);
+
+
+// Semua langkah untuk editor Super Admin.
+app.get(
+  '/api/admin/borrowing-guide',
+  requireAdmin,
+  requireSuperAdminAccess,
+  async (_req, res) => {
+    try {
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              title,
+              description,
+              image_url,
+              image_file_id,
+              sort_order,
+              is_active,
+              created_at,
+              updated_at
+            FROM public.borrowing_guide_steps
+            ORDER BY
+              sort_order ASC,
+              created_at ASC
+          `
+        );
+
+      res.json({
+        ok: true,
+        data: result.rows,
+      });
+    } catch (error) {
+      console.error(
+        '[BORROWING GUIDE ADMIN] GET error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal memuat editor panduan peminjaman',
+      });
+    }
+  }
+);
+
+
+app.post(
+  '/api/admin/borrowing-guide',
+  requireAdmin,
+  requireSuperAdminAccess,
+  async (req, res) => {
+    try {
+      const title =
+        String(
+          req.body?.title ??
+          ''
+        ).trim();
+
+      const description =
+        String(
+          req.body?.description ??
+          ''
+        ).trim();
+
+      const imageUrl =
+        String(
+          req.body?.image_url ??
+          ''
+        ).trim();
+
+      const imageFileId =
+        String(
+          req.body?.image_file_id ??
+          ''
+        ).trim();
+
+      const sortOrder =
+        Number.isFinite(
+          Number(
+            req.body?.sort_order
+          )
+        )
+          ? Math.trunc(
+              Number(
+                req.body.sort_order
+              )
+            )
+          : 0;
+
+      const isActive =
+        req.body?.is_active !==
+        false;
+
+      if (!description) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Teks panduan wajib diisi',
+        });
+      }
+
+      if (!imageUrl) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Gambar panduan wajib diisi',
+        });
+      }
+
+      const result =
+        await pool.query(
+          `
+            INSERT INTO public.borrowing_guide_steps (
+              title,
+              description,
+              image_url,
+              image_file_id,
+              sort_order,
+              is_active,
+              created_by,
+              updated_by
+            )
+            VALUES (
+              $1, $2, $3, $4,
+              $5, $6, $7, $7
+            )
+            RETURNING *
+          `,
+          [
+            title || null,
+            description,
+            imageUrl,
+            imageFileId || null,
+            sortOrder,
+            isActive,
+            req.adminUser.id,
+          ]
+        );
+
+      res.status(201).json({
+        ok: true,
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        '[BORROWING GUIDE ADMIN] POST error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal menambahkan langkah panduan',
+      });
+    }
+  }
+);
+
+
+app.patch(
+  '/api/admin/borrowing-guide/:id',
+  requireAdmin,
+  requireSuperAdminAccess,
+  async (req, res) => {
+    try {
+      const id =
+        String(
+          req.params.id ||
+          ''
+        ).trim();
+
+      const title =
+        String(
+          req.body?.title ??
+          ''
+        ).trim();
+
+      const description =
+        String(
+          req.body?.description ??
+          ''
+        ).trim();
+
+      const imageUrl =
+        String(
+          req.body?.image_url ??
+          ''
+        ).trim();
+
+      const imageFileId =
+        String(
+          req.body?.image_file_id ??
+          ''
+        ).trim();
+
+      const sortOrder =
+        Number.isFinite(
+          Number(
+            req.body?.sort_order
+          )
+        )
+          ? Math.trunc(
+              Number(
+                req.body.sort_order
+              )
+            )
+          : 0;
+
+      const isActive =
+        req.body?.is_active !==
+        false;
+
+      if (!id) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'ID panduan tidak valid',
+        });
+      }
+
+      if (!description) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Teks panduan wajib diisi',
+        });
+      }
+
+      if (!imageUrl) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Gambar panduan wajib diisi',
+        });
+      }
+
+      const result =
+        await pool.query(
+          `
+            UPDATE public.borrowing_guide_steps
+            SET
+              title = $1,
+              description = $2,
+              image_url = $3,
+              image_file_id = $4,
+              sort_order = $5,
+              is_active = $6,
+              updated_by = $7,
+              updated_at = NOW()
+            WHERE id = $8
+            RETURNING *
+          `,
+          [
+            title || null,
+            description,
+            imageUrl,
+            imageFileId || null,
+            sortOrder,
+            isActive,
+            req.adminUser.id,
+            id,
+          ]
+        );
+
+      if (
+        result.rowCount ===
+        0
+      ) {
+        return res.status(404).json({
+          ok: false,
+          message:
+            'Langkah panduan tidak ditemukan',
+        });
+      }
+
+      res.json({
+        ok: true,
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        '[BORROWING GUIDE ADMIN] PATCH error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal memperbarui langkah panduan',
+      });
+    }
+  }
+);
+
+
+app.delete(
+  '/api/admin/borrowing-guide/:id',
+  requireAdmin,
+  requireSuperAdminAccess,
+  async (req, res) => {
+    try {
+      const result =
+        await pool.query(
+          `
+            DELETE FROM public.borrowing_guide_steps
+            WHERE id = $1
+            RETURNING id, title
+          `,
+          [
+            req.params.id,
+          ]
+        );
+
+      if (
+        result.rowCount ===
+        0
+      ) {
+        return res.status(404).json({
+          ok: false,
+          message:
+            'Langkah panduan tidak ditemukan',
+        });
+      }
+
+      res.json({
+        ok: true,
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        '[BORROWING GUIDE ADMIN] DELETE error:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Gagal menghapus langkah panduan',
+      });
+    }
+  }
+);
+
 
 // =====================================================
 // START SERVER
