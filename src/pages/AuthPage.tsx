@@ -15,8 +15,6 @@ import {
   Lock,
   LogIn,
   Mail,
-  User,
-  UserPlus,
 } from 'lucide-react';
 
 import {
@@ -37,22 +35,7 @@ export default function AuthPage() {
 
   const {
     signIn,
-    signUp,
   } = useAuth();
-
-  const [
-    mode,
-    setMode,
-  ] =
-    useState<
-      'login' | 'register'
-    >('login');
-
-  const [
-    name,
-    setName,
-  ] =
-    useState('');
 
   const [
     email,
@@ -101,62 +84,15 @@ export default function AuthPage() {
         return;
       }
 
-      if (
-        mode ===
-          'register' &&
-        !name.trim()
-      ) {
-        showToast(
-          'Nama wajib diisi',
-          'error'
-        );
-        return;
-      }
-
       setLoading(true);
 
       try {
-        if (
-          mode ===
-          'login'
-        ) {
-          const {
-            error,
-          } =
-            await signIn(
-              cleanEmail,
-              password
-            );
-
-          if (error) {
-            showToast(
-              error,
-              'error'
-            );
-            return;
-          }
-
-          showToast(
-            'Berhasil masuk',
-            'success'
-          );
-
-          navigate(
-            '/',
-            {
-              replace: true,
-            }
-          );
-          return;
-        }
-
         const {
           error,
         } =
-          await signUp(
+          await signIn(
             cleanEmail,
-            password,
-            name.trim()
+            password
           );
 
         if (error) {
@@ -168,22 +104,24 @@ export default function AuthPage() {
         }
 
         showToast(
-          'Akun berhasil dibuat. Silakan login.',
+          'Berhasil masuk ke panel admin',
           'success'
         );
 
-        setMode(
-          'login'
+        navigate(
+          '/admin/dashboard',
+          {
+            replace: true,
+          }
         );
-        setPassword('');
       } catch (error) {
         console.error(
-          'AUTH ERROR:',
+          'ADMIN LOGIN ERROR:',
           error
         );
 
         showToast(
-          'Terjadi kesalahan',
+          'Terjadi kesalahan saat masuk',
           'error'
         );
       } finally {
@@ -200,98 +138,28 @@ export default function AuthPage() {
           </div>
 
           <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-            {brand.name}
+            Panel Admin {brand.name}
           </h1>
 
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {brand.school}
+          </p>
+
+          <p className="mt-2 text-xs text-slate-400">
+            Halaman ini khusus pengurus yang memiliki akses admin.
           </p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5 flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
-            <button
-              type="button"
-              onClick={() => {
-                setMode(
-                  'login'
-                );
-                setPassword('');
-              }}
-              className={
-                `flex-1 rounded-md py-2 text-sm font-semibold transition ${
-                  mode ===
-                  'login'
-                    ? 'bg-white text-brand-700 shadow-sm dark:bg-slate-700 dark:text-brand-300'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`
-              }
-            >
-              Masuk
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMode(
-                  'register'
-                );
-                setPassword('');
-              }}
-              className={
-                `flex-1 rounded-md py-2 text-sm font-semibold transition ${
-                  mode ===
-                  'register'
-                    ? 'bg-white text-brand-700 shadow-sm dark:bg-slate-700 dark:text-brand-300'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`
-              }
-            >
-              Daftar
-            </button>
-          </div>
-
           <form
             onSubmit={
               handleSubmit
             }
             className="space-y-4"
           >
-            {mode ===
-              'register' && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Nama
-                </label>
-
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    value={
-                      name
-                    }
-                    onChange={(
-                      e
-                    ) =>
-                      setName(
-                        e.target
-                          .value
-                      )
-                    }
-                    disabled={
-                      loading
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    placeholder="Nama lengkap"
-                  />
-                </div>
-              </div>
-            )}
-
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Email
+                Email Admin
               </label>
 
               <div className="relative">
@@ -306,16 +174,15 @@ export default function AuthPage() {
                     e
                   ) =>
                     setEmail(
-                      e.target
-                        .value
+                      e.target.value
                     )
                   }
                   disabled={
                     loading
                   }
-                  autoComplete="email"
+                  autoComplete="username"
                   className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  placeholder="email@sekolah.sch.id"
+                  placeholder="email admin"
                 />
               </div>
             </div>
@@ -326,21 +193,18 @@ export default function AuthPage() {
                   Password
                 </label>
 
-                {mode ===
-                  'login' && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      showToast(
-                        'Untuk reset password, hubungi Super Admin.',
-                        'info'
-                      )
-                    }
-                    className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300"
-                  >
-                    Lupa Password?
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    showToast(
+                      'Reset password dilakukan oleh technical owner melalui server.',
+                      'info'
+                    )
+                  }
+                  className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300"
+                >
+                  Lupa Password?
+                </button>
               </div>
 
               <div className="relative">
@@ -359,25 +223,13 @@ export default function AuthPage() {
                     e
                   ) =>
                     setPassword(
-                      e.target
-                        .value
+                      e.target.value
                     )
                   }
                   disabled={
                     loading
                   }
-                  autoComplete={
-                    mode ===
-                    'login'
-                      ? 'current-password'
-                      : 'new-password'
-                  }
-                  minLength={
-                    mode ===
-                    'register'
-                      ? 8
-                      : undefined
-                  }
+                  autoComplete="current-password"
                   className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   placeholder="••••••••"
                 />
@@ -403,13 +255,6 @@ export default function AuthPage() {
                   )}
                 </button>
               </div>
-
-              {mode ===
-                'register' && (
-                <p className="mt-1 text-xs text-slate-400">
-                  Minimal 8 karakter.
-                </p>
-              )}
             </div>
 
             <button
@@ -421,19 +266,13 @@ export default function AuthPage() {
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode ===
-                'login' ? (
-                <LogIn className="h-4 w-4" />
               ) : (
-                <UserPlus className="h-4 w-4" />
+                <LogIn className="h-4 w-4" />
               )}
 
               {loading
                 ? 'Memproses…'
-                : mode ===
-                    'login'
-                  ? 'Masuk'
-                  : 'Daftar'}
+                : 'Masuk Admin'}
             </button>
           </form>
 
@@ -445,7 +284,7 @@ export default function AuthPage() {
             className="mt-4 flex w-full items-center justify-center gap-2 text-xs font-medium text-slate-400 transition hover:text-brand-700"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Kembali
+            Kembali ke halaman utama
           </button>
         </div>
       </div>
