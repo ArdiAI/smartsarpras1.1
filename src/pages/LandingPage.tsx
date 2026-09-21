@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -410,7 +411,7 @@ export default function LandingPage() {
                             className="group relative mt-2 block w-fit max-w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100 outline-none transition hover:border-brand-400 focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-950"
                             title="Klik untuk melihat gambar penuh"
                           >
-                            <img
+                            <RemoteImage
                               src={a.image_url}
                               alt={
                                 a.title ||
@@ -493,7 +494,7 @@ export default function LandingPage() {
               e.stopPropagation()
             }
           >
-            <img
+            <RemoteImage
               src={previewImage}
               alt={
                 previewTitle ||
