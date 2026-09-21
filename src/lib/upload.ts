@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSessionToken } from './appSession';
 
 export interface UploadResult {
   url: string;
@@ -24,7 +24,7 @@ const API_BASE_URL =
 
 /**
  * Upload file aplikasi ke Google Drive melalui backend.
- * Supabase tetap dipakai hanya untuk mengambil access token Auth.
+ * Token login diambil dari session backend Smart Sarpras.
  */
 export async function uploadFileToDrive(
   file: File,
@@ -32,9 +32,8 @@ export async function uploadFileToDrive(
   category: DriveCategory = 'laporan'
 ): Promise<UploadResult | null> {
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const token =
+      getSessionToken();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -48,9 +47,9 @@ export async function uploadFileToDrive(
       `${API_BASE_URL}/api/upload-drive`,
       {
         method: 'POST',
-        headers: session?.access_token
+        headers: token
           ? {
-              Authorization: `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${token}`,
             }
           : undefined,
         body: formData,
