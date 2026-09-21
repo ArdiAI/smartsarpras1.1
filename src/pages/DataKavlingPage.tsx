@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { showToast } from '../components/Toast';
@@ -1445,7 +1446,7 @@ export default function DataKavlingPage() {
                               d.file_url,
                               d.file_name
                             ) ? (
-                            <img
+                            <RemoteImage
                               src={
                                 getImageUrl(
                                   d.file_url
@@ -1827,7 +1828,7 @@ export default function DataKavlingPage() {
                       detail.file_url,
                       detail.file_name
                     ) ? (
-                      <img
+                      <RemoteImage
                         src={
                           getImageUrl(
                             detail.file_url
