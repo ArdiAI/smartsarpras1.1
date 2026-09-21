@@ -1,23 +1,16 @@
-const {
-  createClient,
-} = require('@supabase/supabase-js');
+const crypto =
+  require('node:crypto');
 
 const pool =
   require('./db.cjs');
 
 
-const supabaseAuth =
-  createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    }
-  );
+function hashSessionToken(token) {
+  return crypto
+    .createHash('sha256')
+    .update(String(token || ''))
+    .digest('hex');
+}
 
 
 function inferAuditActivityType(req) {
