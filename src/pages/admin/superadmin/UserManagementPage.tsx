@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Power,
   Copy,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 import {
@@ -173,6 +175,20 @@ export default function UserManagementPage() {
     setAddName,
   ] =
     useState('');
+
+
+  const [
+    addPassword,
+    setAddPassword,
+  ] =
+    useState('');
+
+
+  const [
+    showAddPassword,
+    setShowAddPassword,
+  ] =
+    useState(false);
 
 
   const [
@@ -479,6 +495,19 @@ export default function UserManagementPage() {
       }
 
 
+      if (
+        addPassword.length <
+        10
+      ) {
+        showToast(
+          'Password awal minimal 10 karakter',
+          'warning'
+        );
+
+        return;
+      }
+
+
       setSubmitting(
         true
       );
@@ -503,6 +532,9 @@ export default function UserManagementPage() {
 
                   name:
                     addName.trim(),
+
+                  password:
+                    addPassword,
 
                   role_id:
                     addRoleId ||
@@ -576,6 +608,14 @@ export default function UserManagementPage() {
 
         setAddName(
           ''
+        );
+
+        setAddPassword(
+          ''
+        );
+
+        setShowAddPassword(
+          false
         );
 
         setAddRoleId(
@@ -1446,6 +1486,65 @@ export default function UserManagementPage() {
 
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+
+              </div>
+
+
+              <div>
+
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Password Awal *
+                </label>
+
+                <div className="relative">
+                  <input
+                    type={
+                      showAddPassword
+                        ? 'text'
+                        : 'password'
+                    }
+                    value={
+                      addPassword
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setAddPassword(
+                        event.target.value
+                      )
+                    }
+                    minLength={10}
+                    required
+                    autoComplete="new-password"
+                    placeholder="Minimal 10 karakter"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-2.5 pr-11 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAddPassword(
+                        !showAddPassword
+                      )
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    aria-label={
+                      showAddPassword
+                        ? 'Sembunyikan password'
+                        : 'Lihat password'
+                    }
+                  >
+                    {showAddPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Password ini dipakai pengguna untuk login pertama kali.
+                </p>
 
               </div>
 
