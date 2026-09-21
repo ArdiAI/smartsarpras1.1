@@ -13742,6 +13742,7 @@ app.patch(
 
             RETURNING
               id,
+              user_id,
               email,
               is_active
           `,
@@ -13763,11 +13764,48 @@ app.patch(
         });
       }
 
+      const changedUser =
+        result.rows[0];
+
+      if (
+        changedUser.user_id
+      ) {
+        await pool.query(
+          `
+            UPDATE public.app_users
+            SET
+              is_active = $1,
+              updated_at = NOW()
+            WHERE id = $2
+          `,
+          [
+            req.body.is_active,
+            changedUser.user_id,
+          ]
+        );
+
+        if (
+          req.body.is_active ===
+          false
+        ) {
+          await pool.query(
+            `
+              UPDATE public.app_sessions
+              SET revoked_at = NOW()
+              WHERE user_id = $1
+                AND revoked_at IS NULL
+            `,
+            [
+              changedUser.user_id,
+            ]
+          );
+        }
+      }
 
       res.json({
         ok: true,
         data:
-          result.rows[0],
+          changedUser,
       });
     } catch (error) {
       console.error(
@@ -13816,6 +13854,7 @@ app.delete(
           `
             SELECT
               id,
+              user_id,
               email
 
             FROM public.admin_users
@@ -13875,6 +13914,30 @@ app.delete(
           user.id,
         ]
       );
+
+      if (
+        user.user_id
+      ) {
+        await client.query(
+          `
+            DELETE FROM public.app_sessions
+            WHERE user_id = $1
+          `,
+          [
+            user.user_id,
+          ]
+        );
+
+        await client.query(
+          `
+            DELETE FROM public.app_users
+            WHERE id = $1
+          `,
+          [
+            user.user_id,
+          ]
+        );
+      }
 
 
       await client.query(
