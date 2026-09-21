@@ -19,6 +19,7 @@ import {
   MessageSquare,
   MapPin,
   ClipboardList,
+  BookOpenCheck,
 } from 'lucide-react';
 import { brand } from '../brand/config';
 import { useTheme } from '../context/ThemeContext';
@@ -43,6 +44,7 @@ const kavlingNav = [
 
 const otherNav = [
   { to: '/timeline', label: 'Timeline', icon: CalendarRange },
+  { to: '/panduan-peminjaman', label: 'Panduan Peminjaman', icon: BookOpenCheck },
   { to: '/tentang', label: 'Tentang', icon: Info },
 ];
 
