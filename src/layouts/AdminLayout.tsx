@@ -37,6 +37,7 @@ const superNav: NavItem[] = [
   { to: '/admin/system-settings', label: 'Pengaturan Sistem', icon: Settings, permission: 'system_config:read' },
   { to: '/admin/borrowing-guide', label: 'Panduan Peminjaman', icon: BookOpenCheck, permission: 'system_config:read' },
   { to: '/admin/activity-logs', label: 'Activity Logs', icon: ScrollText, permission: 'system_config:read' },
+  { to: '/admin/borrowing-guide', label: 'Panduan Peminjaman', icon: BookOpen, permission: 'superadmin:only' },
 ];
 
 export default function AdminLayout() {
