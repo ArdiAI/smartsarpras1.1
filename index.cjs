@@ -13236,17 +13236,17 @@ app.post(
             ''
         ).trim();
 
-      const roleId =
-        String(
-          req.body?.role_id ??
-            ''
-        ).trim();
-
       const password =
         String(
           req.body?.password ??
             ''
         );
+
+      const roleId =
+        String(
+          req.body?.role_id ??
+            ''
+        ).trim();
 
       if (!email) {
         return res.status(400).json({
@@ -13278,7 +13278,7 @@ app.post(
         return res.status(400).json({
           ok: false,
           message:
-            'Password awal minimal 10 karakter',
+            'Password minimal 10 karakter',
         });
       }
 
@@ -13293,14 +13293,13 @@ app.post(
             FROM (
               SELECT email
               FROM public.admin_users
-              WHERE lower(email) = lower($1)
-
               UNION ALL
-
               SELECT email
               FROM public.app_users
-              WHERE lower(email) = lower($1)
-            ) existing
+            ) users
+            WHERE
+              LOWER(email) =
+                LOWER($1)
             LIMIT 1
           `,
           [email]
@@ -13332,8 +13331,10 @@ app.post(
                 id,
                 name
               FROM public.roles
-              WHERE id = $1
-                AND is_active = true
+              WHERE
+                id = $1
+                AND
+                is_active = true
               LIMIT 1
             `,
             [roleId]
@@ -13366,22 +13367,20 @@ app.post(
       const appUserResult =
         await client.query(
           `
-            INSERT INTO public.app_users (
-              email,
-              password_hash,
-              name,
-              is_active
-            )
+            INSERT INTO
+              public.app_users (
+                email,
+                password_hash,
+                name,
+                is_active
+              )
             VALUES (
               $1,
               $2,
               $3,
               true
             )
-            RETURNING
-              id,
-              email,
-              name
+            RETURNING id
           `,
           [
             email,
@@ -13390,19 +13389,20 @@ app.post(
           ]
         );
 
-      const appUser =
-        appUserResult.rows[0];
+      const appUserId =
+        appUserResult.rows[0].id;
 
       const userResult =
         await client.query(
           `
-            INSERT INTO public.admin_users (
-              user_id,
-              email,
-              name,
-              role,
-              is_active
-            )
+            INSERT INTO
+              public.admin_users (
+                user_id,
+                email,
+                name,
+                role,
+                is_active
+              )
             VALUES (
               $1,
               $2,
@@ -13420,7 +13420,7 @@ app.post(
               created_at
           `,
           [
-            appUser.id,
+            appUserId,
             email,
             name || null,
             roleName,
@@ -13433,10 +13433,11 @@ app.post(
       if (roleId) {
         await client.query(
           `
-            INSERT INTO public.admin_user_roles (
-              admin_user_id,
-              role_id
-            )
+            INSERT INTO
+              public.admin_user_roles (
+                admin_user_id,
+                role_id
+              )
             VALUES (
               $1,
               $2
