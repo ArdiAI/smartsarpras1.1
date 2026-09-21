@@ -1,24 +1,11 @@
-import { supabase } from './supabase';
+import { getSessionToken } from './appSession';
 
 export async function authFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
 ): Promise<Response> {
-  const {
-    data: { session },
-    error,
-  } =
-    await supabase.auth
-      .getSession();
-
-  if (error) {
-    throw new Error(
-      error.message
-    );
-  }
-
   const token =
-    session?.access_token;
+    getSessionToken();
 
   if (!token) {
     throw new Error(
