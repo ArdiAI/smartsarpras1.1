@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import { useEffect, useState } from 'react';
 import {
   Package,
@@ -428,7 +429,7 @@ export default function InventoryPage() {
                           title="Klik untuk melihat gambar"
                         >
 
-                          <img
+                          <RemoteImage
                             src={imageUrl}
                             alt={item.name}
                             className="h-full w-full object-contain transition-transform duration-200 hover:scale-[1.02]"
@@ -605,7 +606,7 @@ export default function InventoryPage() {
 
           {/* IMAGE */}
 
-          <img
+          <RemoteImage
             src={previewImage}
             alt="Preview inventaris"
             className="max-h-[90vh] max-w-[95vw] object-contain"
