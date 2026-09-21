@@ -195,10 +195,10 @@ function registerPasswordResetRoutes(
           error
         );
 
-        return res.status(500).json({
-          ok: false,
+        return res.json({
+          ok: true,
           message:
-            'Gagal memproses reset password',
+            'Jika email terdaftar, tautan reset password akan dikirim.',
         });
       }
     }
