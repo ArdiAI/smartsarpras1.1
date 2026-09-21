@@ -13,6 +13,11 @@ const {
   requirePermission,
 } = require('./auth.cjs');
 
+const {
+  createSessionToken,
+  hashSessionToken,
+} = require('./app-auth.cjs');
+
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -227,6 +232,16 @@ const uploadWriteLimiter =
     max: 12,
     label:
       'upload-write',
+  });
+
+
+const authWriteLimiter =
+  createRateLimiter({
+    windowMs:
+      5 * 60 * 1000,
+    max: 20,
+    label:
+      'auth-write',
   });
 
 
