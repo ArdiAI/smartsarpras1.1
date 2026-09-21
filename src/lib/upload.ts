@@ -15,7 +15,8 @@ export type DriveCategory =
   | 'foto_pengumuman'
   | 'inventory'
   | 'fasilitas'
-  | 'tim_pengelola';
+  | 'tim_pengelola'
+  | 'panduan_peminjaman';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ??
