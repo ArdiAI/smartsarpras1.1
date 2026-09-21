@@ -144,7 +144,7 @@ function BorrowingFeatureRoute() {
   if (!enabled) {
     return (
       <Navigate
-        to="/admin/dashboard"
+        to="/"
         replace
       />
     );
@@ -164,6 +164,7 @@ function BorrowingFeatureRoute() {
 function AuthRoute() {
   const {
     session,
+    adminProfile,
     loading,
   } = useAuth();
 
@@ -319,6 +320,15 @@ function AdminRoute({
         state={{
           from: location,
         }}
+        replace
+      />
+    );
+  }
+
+  if (!adminProfile) {
+    return (
+      <Navigate
+        to="/"
         replace
       />
     );
