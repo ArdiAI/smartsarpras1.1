@@ -15,7 +15,8 @@
     "backup:db": "node scripts/backup-db.cjs",
     "restore:db": "node scripts/restore-db.cjs",
     "acceptance": "node scripts/acceptance-test.cjs",
-    "check:app-auth": "node --check app-auth.cjs"
+    "check:app-auth": "node --check app-auth.cjs",
+    "admin:set-password": "node scripts/set-admin-password.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
