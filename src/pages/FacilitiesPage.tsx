@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import { useEffect, useState } from 'react';
 import {
   Building2,
@@ -212,7 +213,7 @@ export default function FacilitiesPage() {
                       className="h-full w-full cursor-zoom-in"
                       title="Klik untuk melihat gambar"
                     >
-                      <img
+                      <RemoteImage
                         src={imageSrc}
                         alt={f.name}
                         className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
@@ -285,7 +286,7 @@ export default function FacilitiesPage() {
           </button>
 
           {/* FULL IMAGE */}
-          <img
+          <RemoteImage
             src={previewImage}
             alt="Preview fasilitas"
             className="max-h-[90vh] max-w-[95vw] object-contain"
