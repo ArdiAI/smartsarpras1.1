@@ -13221,7 +13221,6 @@ app.post(
     const client =
       await pool.connect();
 
-
     try {
       const email =
         String(
@@ -13231,13 +13230,11 @@ app.post(
           .trim()
           .toLowerCase();
 
-
       const name =
         String(
           req.body?.name ??
             ''
         ).trim();
-
 
       const roleId =
         String(
@@ -13245,6 +13242,11 @@ app.post(
             ''
         ).trim();
 
+      const password =
+        String(
+          req.body?.password ??
+            ''
+        );
 
       if (!email) {
         return res.status(400).json({
@@ -13254,10 +13256,8 @@ app.post(
         });
       }
 
-
       const emailPattern =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 
       if (
         !emailPattern.test(
@@ -13271,28 +13271,40 @@ app.post(
         });
       }
 
+      if (
+        password.length <
+        10
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Password awal minimal 10 karakter',
+        });
+      }
 
       await client.query(
         'BEGIN'
       );
 
-
       const duplicate =
         await client.query(
           `
-            SELECT id
+            SELECT email
+            FROM (
+              SELECT email
+              FROM public.admin_users
+              WHERE lower(email) = lower($1)
 
-            FROM public.admin_users
+              UNION ALL
 
-            WHERE
-              LOWER(email) =
-                LOWER($1)
-
+              SELECT email
+              FROM public.app_users
+              WHERE lower(email) = lower($1)
+            ) existing
             LIMIT 1
           `,
           [email]
         );
-
 
       if (
         duplicate.rowCount >
@@ -13302,18 +13314,15 @@ app.post(
           'ROLLBACK'
         );
 
-
         return res.status(409).json({
           ok: false,
           message:
-            'Email sudah terdaftar sebagai admin',
+            'Email sudah terdaftar',
         });
       }
 
-
       let roleName =
         null;
-
 
       if (roleId) {
         const roleResult =
@@ -13322,20 +13331,13 @@ app.post(
               SELECT
                 id,
                 name
-
               FROM public.roles
-
-              WHERE
-                id = $1
-
-                AND
-                is_active = true
-
+              WHERE id = $1
+                AND is_active = true
               LIMIT 1
             `,
             [roleId]
           );
-
 
         if (
           roleResult.rowCount ===
@@ -13345,7 +13347,6 @@ app.post(
             'ROLLBACK'
           );
 
-
           return res.status(400).json({
             ok: false,
             message:
@@ -13353,30 +13354,62 @@ app.post(
           });
         }
 
-
         roleName =
           roleResult.rows[0].name;
       }
 
+      const passwordHash =
+        await hashPassword(
+          password
+        );
 
-      const userResult =
+      const appUserResult =
         await client.query(
           `
-            INSERT INTO
-              public.admin_users (
-                email,
-                name,
-                role,
-                is_active
-              )
-
+            INSERT INTO public.app_users (
+              email,
+              password_hash,
+              name,
+              is_active
+            )
             VALUES (
               $1,
               $2,
               $3,
               true
             )
+            RETURNING
+              id,
+              email,
+              name
+          `,
+          [
+            email,
+            passwordHash,
+            name || null,
+          ]
+        );
 
+      const appUser =
+        appUserResult.rows[0];
+
+      const userResult =
+        await client.query(
+          `
+            INSERT INTO public.admin_users (
+              user_id,
+              email,
+              name,
+              role,
+              is_active
+            )
+            VALUES (
+              $1,
+              $2,
+              $3,
+              $4,
+              true
+            )
             RETURNING
               id,
               user_id,
@@ -13387,31 +13420,27 @@ app.post(
               created_at
           `,
           [
+            appUser.id,
             email,
             name || null,
             roleName,
           ]
         );
 
-
       const user =
         userResult.rows[0];
-
 
       if (roleId) {
         await client.query(
           `
-            INSERT INTO
-              public.admin_user_roles (
-                admin_user_id,
-                role_id
-              )
-
+            INSERT INTO public.admin_user_roles (
+              admin_user_id,
+              role_id
+            )
             VALUES (
               $1,
               $2
             )
-
             ON CONFLICT DO NOTHING
           `,
           [
@@ -13421,15 +13450,12 @@ app.post(
         );
       }
 
-
       await client.query(
         'COMMIT'
       );
 
-
       res.status(201).json({
         ok: true,
-
         data: {
           ...user,
           role_name:
@@ -13441,12 +13467,10 @@ app.post(
         'ROLLBACK'
       );
 
-
       console.error(
         '[ADMIN USERS CREATE] error:',
         error
       );
-
 
       res.status(500).json({
         ok: false,
