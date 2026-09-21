@@ -532,7 +532,7 @@ export function AuthProvider({
 
         return {
           error:
-            'Backend tidak dapat dihubungi',
+            'Layanan tidak dapat dihubungi',
         };
       }
     };
@@ -590,7 +590,7 @@ export function AuthProvider({
 
         return {
           error:
-            'Backend tidak dapat dihubungi',
+            'Layanan tidak dapat dihubungi',
         };
       }
     };
