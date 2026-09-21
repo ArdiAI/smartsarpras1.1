@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import {
   useEffect,
   useState,
@@ -151,7 +152,7 @@ export default function BorrowingGuidePage() {
                 >
                   <div className="relative bg-slate-100 dark:bg-slate-800">
                     {step.image_url ? (
-                      <img
+                      <RemoteImage
                         src={
                           step.image_url
                         }
