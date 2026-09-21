@@ -1,16 +1,9 @@
-const crypto =
-  require('node:crypto');
+const {
+  resolveSession,
+} = require('./app-auth.cjs');
 
 const pool =
   require('./db.cjs');
-
-
-function hashSessionToken(token) {
-  return crypto
-    .createHash('sha256')
-    .update(String(token || ''))
-    .digest('hex');
-}
 
 
 function inferAuditActivityType(req) {
