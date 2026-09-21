@@ -1,3 +1,4 @@
+import RemoteImage from '../../components/RemoteImage';
 import {
   useEffect,
   useState,
@@ -821,7 +822,7 @@ export default function AnnouncementsAdminPage() {
                     </div>
 
                     {announcement.image_url && (
-                      <img
+                      <RemoteImage
                         src={
                           announcement.image_url
                         }
@@ -1007,7 +1008,7 @@ export default function AnnouncementsAdminPage() {
 
                 {form.imageUrl &&
                   !imageFile && (
-                    <img
+                    <RemoteImage
                       src={
                         form.imageUrl
                       }
