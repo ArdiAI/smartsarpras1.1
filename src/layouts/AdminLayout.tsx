@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { LayoutDashboard, Package, Building2, ClipboardList, CalendarDays, CalendarRange, FileText, Users, Megaphone, MessageSquare, BarChart3, UserCog, ShieldCheck, Workflow, Settings, Mail, LogOut, Menu, X, Moon, Sun, ScrollText, MapPin, FolderOpen, School, Trophy, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Package, Building2, ClipboardList, CalendarDays, CalendarRange, FileText, Users, Megaphone, MessageSquare, BarChart3, UserCog, ShieldCheck, Workflow, Settings, Mail, LogOut, Menu, X, Moon, Sun, ScrollText, MapPin, FolderOpen, School, Trophy, ChevronDown, BookOpenCheck } from 'lucide-react';
 import { brand } from '../brand/config';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -35,6 +35,7 @@ const superNav: NavItem[] = [
   { to: '/admin/system-config', label: 'Konfigurasi Sistem', icon: Settings, permission: 'system_config:read' },
   { to: '/admin/approver-emails', label: 'Email Approver', icon: Mail, permission: 'approver_emails:read' },
   { to: '/admin/system-settings', label: 'Pengaturan Sistem', icon: Settings, permission: 'system_config:read' },
+  { to: '/admin/borrowing-guide', label: 'Panduan Peminjaman', icon: BookOpenCheck, permission: 'system_config:read' },
   { to: '/admin/activity-logs', label: 'Activity Logs', icon: ScrollText, permission: 'system_config:read' },
 ];
 
@@ -49,7 +50,13 @@ export default function AdminLayout() {
   const visibleMain = mainNav.filter((n) => hasPermission(n.permission.split(':')[0], n.permission.split(':')[1]));
   const visibleLainnya = lainnyaNav.filter((n) => hasPermission(n.permission.split(':')[0], n.permission.split(':')[1]));
   const visibleSuper = superNav.filter((n) => {
-    if (n.to === '/admin/activity-logs') return isSuperAdmin;
+    if (
+      n.to === '/admin/activity-logs' ||
+      n.to === '/admin/borrowing-guide'
+    ) {
+      return isSuperAdmin;
+    }
+
     return hasPermission(n.permission.split(':')[0], n.permission.split(':')[1]);
   });
   const handleSignOut = async () => { await signOut(); navigate('/'); };
