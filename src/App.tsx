@@ -144,7 +144,7 @@ function BorrowingFeatureRoute() {
   if (!enabled) {
     return (
       <Navigate
-        to="/"
+        to="/admin/dashboard"
         replace
       />
     );
@@ -315,7 +315,7 @@ function AdminRoute({
   if (!session) {
     return (
       <Navigate
-        to="/auth"
+        to="/admin/login"
         state={{
           from: location,
         }}
@@ -336,20 +336,30 @@ export default function App() {
     <Routes>
 
       {/* =====================================================
-          PUBLIC AUTH ROUTES
-          TIDAK BOLEH DIMASUKKAN KE RequireAuth
+          ADMIN LOGIN KHUSUS
+          USER PUBLIK TIDAK MEMERLUKAN LOGIN
           ===================================================== */}
 
       <Route
-        path="/auth"
+        path="/admin/login"
         element={<AuthRoute />}
+      />
+
+      <Route
+        path="/auth"
+        element={
+          <Navigate
+            to="/"
+            replace
+          />
+        }
       />
 
       <Route
         path="/confirm"
         element={
           <Navigate
-            to="/auth"
+            to="/"
             replace
           />
         }
@@ -359,14 +369,15 @@ export default function App() {
         path="/reset-password"
         element={
           <Navigate
-            to="/auth"
+            to="/"
             replace
           />
         }
       />
 
       {/* =====================================================
-          SEMUA ROUTE DI DALAM INI WAJIB LOGIN
+          ROUTE PUBLIK + ADMIN
+          ROUTE PUBLIK LANGSUNG DIAKSES TANPA LOGIN
           ===================================================== */}
 
       <Route
