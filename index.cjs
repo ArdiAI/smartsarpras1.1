@@ -246,6 +246,339 @@ const authWriteLimiter =
 
 
 // =====================================================
+// APPLICATION AUTH - TIDAK MENGGUNAKAN SUPABASE AUTH API
+// =====================================================
+
+app.post(
+  '/api/auth/register',
+  authWriteLimiter,
+  async (req, res) => {
+    try {
+      const email =
+        String(req.body?.email || '')
+          .trim()
+          .toLowerCase();
+
+      const password =
+        String(req.body?.password || '');
+
+      const name =
+        String(req.body?.name || '')
+          .trim();
+
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message: 'Format email tidak valid',
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Password minimal 8 karakter',
+        });
+      }
+
+      if (!name) {
+        return res.status(400).json({
+          ok: false,
+          message: 'Nama wajib diisi',
+        });
+      }
+
+      const existing =
+        await pool.query(
+          `
+            SELECT id
+            FROM public.app_users
+            WHERE lower(email) = $1
+            LIMIT 1
+          `,
+          [email]
+        );
+
+      if (existing.rowCount > 0) {
+        return res.status(409).json({
+          ok: false,
+          message:
+            'Email sudah terdaftar. Silakan login.',
+        });
+      }
+
+      const adminMatch =
+        await pool.query(
+          `
+            SELECT user_id
+            FROM public.admin_users
+            WHERE lower(email) = $1
+              AND is_active = true
+            LIMIT 1
+          `,
+          [email]
+        );
+
+      const preferredId =
+        adminMatch.rows[0]?.user_id ??
+        null;
+
+      const result =
+        await pool.query(
+          `
+            INSERT INTO public.app_users (
+              id,
+              email,
+              password_hash,
+              name,
+              is_active,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              COALESCE(
+                $1::uuid,
+                gen_random_uuid()
+              ),
+              $2,
+              extensions.crypt(
+                $3,
+                extensions.gen_salt(
+                  'bf',
+                  12
+                )
+              ),
+              $4,
+              true,
+              NOW(),
+              NOW()
+            )
+            RETURNING
+              id,
+              email,
+              name,
+              is_active
+          `,
+          [
+            preferredId,
+            email,
+            password,
+            name,
+          ]
+        );
+
+      return res.status(201).json({
+        ok: true,
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        '[APP AUTH] register error:',
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        message:
+          'Gagal membuat akun',
+      });
+    }
+  }
+);
+
+
+app.post(
+  '/api/auth/login',
+  authWriteLimiter,
+  async (req, res) => {
+    try {
+      const email =
+        String(req.body?.email || '')
+          .trim()
+          .toLowerCase();
+
+      const password =
+        String(req.body?.password || '');
+
+      if (!email || !password) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Email dan password wajib diisi',
+        });
+      }
+
+      const userResult =
+        await pool.query(
+          `
+            SELECT
+              id,
+              email,
+              name
+            FROM public.app_users
+            WHERE lower(email) = $1
+              AND is_active = true
+              AND password_hash =
+                extensions.crypt(
+                  $2,
+                  password_hash
+                )
+            LIMIT 1
+          `,
+          [
+            email,
+            password,
+          ]
+        );
+
+      const user =
+        userResult.rows[0];
+
+      if (!user) {
+        return res.status(401).json({
+          ok: false,
+          message:
+            'Email atau password salah. Jika ini pertama kali memakai auth baru, pilih Daftar terlebih dahulu.',
+        });
+      }
+
+      const token =
+        createSessionToken();
+
+      const tokenHash =
+        hashSessionToken(
+          token
+        );
+
+      const ttlDays =
+        Math.max(
+          1,
+          Number(
+            process.env.SESSION_TTL_DAYS ||
+            7
+          ) || 7
+        );
+
+      const sessionResult =
+        await pool.query(
+          `
+            INSERT INTO public.app_sessions (
+              user_id,
+              token_hash,
+              expires_at,
+              ip_address,
+              user_agent
+            )
+            VALUES (
+              $1,
+              $2,
+              NOW() +
+                ($3::text || ' days')::interval,
+              $4,
+              $5
+            )
+            RETURNING
+              id,
+              expires_at
+          `,
+          [
+            user.id,
+            tokenHash,
+            ttlDays,
+            req.ip ?? null,
+            req.headers[
+              'user-agent'
+            ] ?? null,
+          ]
+        );
+
+      return res.json({
+        ok: true,
+        data: {
+          token,
+          expiresAt:
+            sessionResult.rows[0]
+              .expires_at,
+          user,
+        },
+      });
+    } catch (error) {
+      console.error(
+        '[APP AUTH] login error:',
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        message:
+          'Gagal melakukan login',
+      });
+    }
+  }
+);
+
+
+app.get(
+  '/api/auth/session',
+  requireAuth,
+  (req, res) => {
+    return res.json({
+      ok: true,
+      data: {
+        user: {
+          id:
+            req.authUser.id,
+          email:
+            req.authUser.email,
+          name:
+            req.authUser.name ??
+            req.authUser.user_metadata?.name ??
+            '',
+        },
+      },
+    });
+  }
+);
+
+
+app.post(
+  '/api/auth/logout',
+  requireAuth,
+  async (req, res) => {
+    try {
+      await pool.query(
+        `
+          UPDATE public.app_sessions
+          SET revoked_at = NOW()
+          WHERE id = $1
+        `,
+        [
+          req.appSessionId,
+        ]
+      );
+
+      return res.json({
+        ok: true,
+      });
+    } catch (error) {
+      console.error(
+        '[APP AUTH] logout error:',
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        message:
+          'Gagal logout',
+      });
+    }
+  }
+);
+
+
+// =====================================================
 // GOOGLE DRIVE UPLOAD
 // Supabase Storage sudah tidak dipakai untuk data aplikasi.
 // =====================================================
