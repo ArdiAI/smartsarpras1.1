@@ -302,6 +302,15 @@ app.post(
 
       const base64File = req.file.buffer.toString('base64');
 
+      // Apps Script lama mungkin belum punya mapping folder khusus
+      // untuk panduan peminjaman. Tetap pakai kategori aplikasi
+      // sendiri untuk authorization, tetapi simpan gambar ke folder
+      // gambar umum yang sudah ada agar deployment tidak terblokir.
+      const driveCategory =
+        category === 'panduan_peminjaman'
+          ? 'foto_pengumuman'
+          : category;
+
       const driveResponse = await fetch(
         process.env.GOOGLE_APPS_SCRIPT_URL,
         {
@@ -311,7 +320,7 @@ app.post(
           },
           body: JSON.stringify({
             token: process.env.GOOGLE_APPS_SCRIPT_TOKEN,
-            category,
+            category: driveCategory,
             fileName: String(req.body?.fileName || req.file.originalname),
             mimeType: req.file.mimetype,
             file: base64File,
