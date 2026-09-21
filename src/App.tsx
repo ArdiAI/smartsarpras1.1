@@ -36,8 +36,6 @@ import BorrowingGuidePage from './pages/BorrowingGuidePage';
 
 // AUTH
 import AuthPage from './pages/AuthPage';
-import ConfirmEmailPage from './pages/ConfirmEmailPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // ADMIN
 import DashboardPage from './pages/admin/DashboardPage';
@@ -382,24 +380,20 @@ export default function App() {
       <Route
         path="/confirm"
         element={
-          <ConfirmEmailPage />
+          <Navigate
+            to="/auth"
+            replace
+          />
         }
       />
-
-      {/* =====================================================
-          RESET PASSWORD
-
-          LINK EMAIL:
-          /reset-password?token_hash=xxxx&type=recovery
-
-          Query parameter tidak perlu ditulis di path Route.
-          React Router hanya membaca /reset-password.
-          ===================================================== */}
 
       <Route
         path="/reset-password"
         element={
-          <ResetPasswordPage />
+          <Navigate
+            to="/auth"
+            replace
+          />
         }
       />
 
