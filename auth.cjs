@@ -378,6 +378,92 @@ async function requireAuth(
 }
 
 
+async function optionalAuth(
+  req,
+  res,
+  next
+) {
+  try {
+    const authorization =
+      req.headers.authorization || '';
+
+    if (
+      !authorization.startsWith(
+        'Bearer '
+      )
+    ) {
+      return next();
+    }
+
+    const token =
+      authorization
+        .slice(7)
+        .trim();
+
+    const appSession =
+      await resolveSession(
+        token
+      );
+
+    if (!appSession) {
+      return res
+        .status(401)
+        .json({
+          ok: false,
+          message:
+            'Session admin tidak valid atau sudah kedaluwarsa',
+        });
+    }
+
+    const user = {
+      id:
+        appSession.user.id,
+      email:
+        appSession.user.email,
+      name:
+        appSession.user.name,
+      user_metadata: {
+        name:
+          appSession.user.name,
+      },
+    };
+
+    req.authToken =
+      token;
+
+    req.appSessionId =
+      appSession.sessionId;
+
+    req.authUser =
+      user;
+
+    await attachOptionalAdminContext(
+      req,
+      res,
+      user.id,
+      user.email
+    );
+
+    next();
+
+  } catch (error) {
+    console.error(
+      '[AUTH] optionalAuth error:',
+      error
+    );
+
+    return res
+      .status(500)
+      .json({
+        ok: false,
+        message:
+          'Gagal memeriksa session admin',
+      });
+  }
+}
+
+
+
 // =====================================================
 // REQUIRE ADMIN
 // =====================================================
@@ -722,6 +808,7 @@ function requirePermission(
 
 module.exports = {
   requireAuth,
+  optionalAuth,
   requireAdmin,
   requirePermission,
 };
