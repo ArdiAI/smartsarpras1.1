@@ -72,59 +72,7 @@ async function hashPassword(
     derivedKey.toString(
       'hex'
     ),
-  ].join('
-  const result =
-    await pool.query(
-      `
-        SELECT
-          s.id AS session_id,
-          s.user_id,
-          u.email,
-          u.name
-        FROM public.app_sessions s
-        INNER JOIN public.app_users u
-          ON u.id = s.user_id
-        WHERE s.token_hash = $1
-          AND s.revoked_at IS NULL
-          AND s.expires_at > NOW()
-          AND u.is_active = true
-        LIMIT 1
-      `,
-      [
-        hashSessionToken(token),
-      ]
-    );
-
-  const row =
-    result.rows[0];
-
-  if (!row) {
-    return null;
-  }
-
-  return {
-    sessionId:
-      row.session_id,
-    user: {
-      id:
-        row.user_id,
-      email:
-        row.email,
-      name:
-        row.name,
-    },
-  };
-}
-
-
-module.exports = {
-  createSessionToken,
-  hashSessionToken,
-  hashPassword,
-  verifyPassword,
-  resolveSession,
-};
-);
+  ].join('$');
 }
 
 
@@ -139,57 +87,7 @@ async function verifyPassword(
   ] =
     String(
       storedHash || ''
-    ).split('
-  const result =
-    await pool.query(
-      `
-        SELECT
-          s.id AS session_id,
-          s.user_id,
-          u.email,
-          u.name
-        FROM public.app_sessions s
-        INNER JOIN public.app_users u
-          ON u.id = s.user_id
-        WHERE s.token_hash = $1
-          AND s.revoked_at IS NULL
-          AND s.expires_at > NOW()
-          AND u.is_active = true
-        LIMIT 1
-      `,
-      [
-        hashSessionToken(token),
-      ]
-    );
-
-  const row =
-    result.rows[0];
-
-  if (!row) {
-    return null;
-  }
-
-  return {
-    sessionId:
-      row.session_id,
-    user: {
-      id:
-        row.user_id,
-      email:
-        row.email,
-      name:
-        row.name,
-    },
-  };
-}
-
-
-module.exports = {
-  createSessionToken,
-  hashSessionToken,
-  resolveSession,
-};
-);
+    ).split('$');
 
   if (
     algorithm !==
@@ -275,5 +173,7 @@ async function resolveSession(token) {
 module.exports = {
   createSessionToken,
   hashSessionToken,
+  hashPassword,
+  verifyPassword,
   resolveSession,
 };
