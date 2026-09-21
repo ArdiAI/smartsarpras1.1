@@ -7,21 +7,17 @@ export async function authFetch(
   const token =
     getSessionToken();
 
-  if (!token) {
-    throw new Error(
-      'Sesi login tidak ditemukan. Silakan login kembali.'
-    );
-  }
-
   const headers =
     new Headers(
       init.headers
     );
 
-  headers.set(
-    'Authorization',
-    `Bearer ${token}`
-  );
+  if (token) {
+    headers.set(
+      'Authorization',
+      `Bearer ${token}`
+    );
+  }
 
   return fetch(
     input,
