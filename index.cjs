@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const multer = require('multer');
+const nodemailer = require('nodemailer');
 const { AsyncLocalStorage } = require('node:async_hooks');
 const pool = require('./db.cjs');
 
@@ -6071,42 +6072,12 @@ app.post(
           `;
 
 
-          const emailResponse =
-            await fetch(
-              `${process.env.SUPABASE_URL}/functions/v1/send-borrowing-email`,
-              {
-                method: 'POST',
-
-                headers: {
-                  'Content-Type':
-                    'application/json',
-
-                  apikey:
-                    process.env.SUPABASE_ANON_KEY,
-
-                  Authorization:
-                    String(
-                      req.headers.authorization ||
-                      ''
-                    ),
-                },
-
-                body: JSON.stringify({
-                  recipientEmails,
-                  subject:
-                    'Pengajuan Peminjaman Baru - Smart Sarpras',
-                  message,
-                }),
-              }
-            );
-
-
-          if (!emailResponse.ok) {
-            console.warn(
-              '[BORROWING] Email function gagal:',
-              emailResponse.status
-            );
-          }
+          await sendBorrowAdminEmail({
+            recipientEmails,
+            subject:
+              'Pengajuan Peminjaman Baru - Smart Sarpras',
+            message,
+          });
         }
       } catch (notificationError) {
         console.warn(
@@ -6174,63 +6145,133 @@ function escapeBorrowAdminHtml(value) {
 
 async function sendBorrowAdminEmail(payload) {
   try {
-    if (
-      !process.env.SUPABASE_URL ||
-      !process.env.SUPABASE_ANON_KEY
-    ) {
-      return;
-    }
-
-    const authorization =
+    const smtpHost =
       String(
-        requestContext
-          .getStore()
-          ?.authorization ||
-          ''
+        process.env.SMTP_HOST ||
+        ''
+      ).trim();
+
+    const smtpPort =
+      Number(
+        process.env.SMTP_PORT ||
+        587
       );
+
+    const smtpUser =
+      String(
+        process.env.SMTP_USER ||
+        ''
+      ).trim();
+
+    const smtpPass =
+      String(
+        process.env.SMTP_PASS ||
+        ''
+      );
+
+    const fromEmail =
+      String(
+        process.env.FROM_EMAIL ||
+        smtpUser
+      ).trim();
+
+    const fromName =
+      String(
+        process.env.FROM_NAME ||
+        'Smart Sarpras'
+      ).trim();
 
     if (
-      !authorization.startsWith(
-        'Bearer '
-      )
+      !smtpHost ||
+      !smtpPort ||
+      !smtpUser ||
+      !smtpPass ||
+      !fromEmail
     ) {
       console.warn(
-        '[BORROW ADMIN EMAIL] user session tidak tersedia'
+        '[EMAIL] SMTP backend belum dikonfigurasi'
       );
-      return;
+      return false;
     }
 
-    const response = await fetch(
-      `${process.env.SUPABASE_URL}/functions/v1/send-borrowing-email`,
-      {
-        method: 'POST',
+    const recipients =
+      Array.isArray(
+        payload?.recipientEmails
+      )
+        ? payload.recipientEmails
+        : payload?.recipientEmail
+          ? [
+              payload.recipientEmail,
+            ]
+          : [];
 
-        headers: {
-          'Content-Type': 'application/json',
+    const cleanRecipients =
+      [
+        ...new Set(
+          recipients
+            .map(
+              (value) =>
+                String(
+                  value || ''
+                ).trim()
+            )
+            .filter(Boolean)
+        ),
+      ].slice(0, 20);
 
-          apikey:
-            process.env.SUPABASE_ANON_KEY,
-
-          Authorization:
-            authorization,
-        },
-
-        body:
-          JSON.stringify(payload),
-      }
-    );
-
-    if (!response.ok) {
+    if (
+      cleanRecipients.length ===
+        0 ||
+      !payload?.subject ||
+      !payload?.message
+    ) {
       console.warn(
-        '[BORROW ADMIN EMAIL]',
-        response.status
+        '[EMAIL] payload email tidak lengkap'
       );
+      return false;
     }
+
+    const transporter =
+      nodemailer.createTransport({
+        host:
+          smtpHost,
+        port:
+          smtpPort,
+        secure:
+          smtpPort === 465,
+        auth: {
+          user:
+            smtpUser,
+          pass:
+            smtpPass,
+        },
+      });
+
+    await transporter.sendMail({
+      from:
+        `"${fromName}" <${fromEmail}>`,
+      to:
+        cleanRecipients.join(
+          ', '
+        ),
+      subject:
+        String(
+          payload.subject
+        ),
+      html:
+        String(
+          payload.message
+        ),
+    });
+
+    return true;
   } catch (error) {
     console.warn(
-      '[BORROW ADMIN EMAIL]',
+      '[EMAIL] gagal mengirim:',
       error
     );
+
+    return false;
   }
 }
 
@@ -15538,93 +15579,114 @@ app.delete(
 app.get(
   '/api/admin/system-testing/email-function/status',
   requireAdmin,
-  async (req, res) => {
+  async (_req, res) => {
     try {
-      const supabaseUrl =
+      const smtpHost =
         String(
-          process.env.SUPABASE_URL || ''
-        )
-          .trim()
-          .replace(/\/+$/, '');
+          process.env.SMTP_HOST ||
+          ''
+        ).trim();
 
-      if (!supabaseUrl) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            message:
-              'SUPABASE_URL backend belum tersedia',
-          });
-      }
-
-      const response =
-        await fetch(
-          `${supabaseUrl}/functions/v1/send-borrowing-email`,
-          {
-            method:
-              'OPTIONS',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-
-              apikey:
-                process.env.SUPABASE_ANON_KEY,
-
-              Authorization:
-                String(
-                  req.headers.authorization ||
-                  ''
-                ),
-            },
-          }
+      const smtpPort =
+        Number(
+          process.env.SMTP_PORT ||
+          587
         );
 
-      const reachable =
-        response.ok ||
-        response.status === 200 ||
-        response.status === 204;
+      const smtpUser =
+        String(
+          process.env.SMTP_USER ||
+          ''
+        ).trim();
+
+      const smtpPass =
+        String(
+          process.env.SMTP_PASS ||
+          ''
+        );
+
+      const configured =
+        Boolean(
+          smtpHost &&
+          smtpPort &&
+          smtpUser &&
+          smtpPass
+        );
+
+      if (!configured) {
+        return res.json({
+          ok: true,
+          data: {
+            status: 'fail',
+            details:
+              'SMTP backend belum dikonfigurasi.',
+            checks: [
+              {
+                label:
+                  'Konfigurasi SMTP backend tersedia',
+                ok: false,
+              },
+            ],
+          },
+        });
+      }
+
+      const transporter =
+        nodemailer.createTransport({
+          host:
+            smtpHost,
+          port:
+            smtpPort,
+          secure:
+            smtpPort === 465,
+          auth: {
+            user:
+              smtpUser,
+            pass:
+              smtpPass,
+          },
+        });
+
+      await transporter.verify();
 
       return res.json({
         ok: true,
-
         data: {
-          status:
-            reachable
-              ? 'pass'
-              : 'fail',
-
+          status: 'pass',
           details:
-            reachable
-              ? 'Email service dapat dihubungi melalui backend.'
-              : `Email service merespons status ${response.status}.`,
-
+            'SMTP backend dapat dihubungi.',
           checks: [
             {
               label:
-                'Backend dapat menghubungi email service',
-
-              ok:
-                reachable,
+                'SMTP backend dapat dihubungi',
+              ok: true,
             },
           ],
         },
       });
     } catch (error) {
       console.error(
-        '[SYSTEM TESTING] Email function status error:',
+        '[SYSTEM TESTING] SMTP status error:',
         error
       );
 
-      return res
-        .status(500)
-        .json({
-          ok: false,
-          message:
+      return res.json({
+        ok: true,
+        data: {
+          status: 'fail',
+          details:
             error instanceof Error
               ? error.message
-              : 'Gagal menguji email service',
-        });
+              : 'SMTP backend gagal dihubungi',
+          checks: [
+            {
+              label:
+                'SMTP backend dapat dihubungi',
+              ok: false,
+            },
+          ],
+        },
+      });
     }
   }
 );
