@@ -16,6 +16,8 @@ const {
 const {
   createSessionToken,
   hashSessionToken,
+  hashPassword,
+  verifyPassword,
 } = require('./app-auth.cjs');
 
 
