@@ -315,31 +315,40 @@ async function requireAuth(
         .slice(7)
         .trim();
 
-    const {
-      data: {
-        user,
-      },
-      error,
-    } =
-      await supabaseAuth
-        .auth
-        .getUser(token);
+    const appSession =
+      await resolveSession(
+        token
+      );
 
-    if (
-      error ||
-      !user
-    ) {
+    if (!appSession) {
       return res
         .status(401)
         .json({
           ok: false,
           message:
-            'Session login tidak valid',
+            'Session login tidak valid atau sudah kedaluwarsa',
         });
     }
 
-    // Dipakai route seperti Kavling:
-    // req.authUser.id
+    const user = {
+      id:
+        appSession.user.id,
+      email:
+        appSession.user.email,
+      name:
+        appSession.user.name,
+      user_metadata: {
+        name:
+          appSession.user.name,
+      },
+    };
+
+    req.authToken =
+      token;
+
+    req.appSessionId =
+      appSession.sessionId;
+
     req.authUser =
       user;
 
