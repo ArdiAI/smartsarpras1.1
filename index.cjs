@@ -9,6 +9,7 @@ const pool = require('./db.cjs');
 
 const {
   requireAuth,
+  optionalAuth,
   requireAdmin,
   requirePermission,
 } = require('./auth.cjs');
@@ -254,138 +255,12 @@ const authWriteLimiter =
 app.post(
   '/api/auth/register',
   authWriteLimiter,
-  async (req, res) => {
-    try {
-      const email =
-        String(req.body?.email || '')
-          .trim()
-          .toLowerCase();
-
-      const password =
-        String(req.body?.password || '');
-
-      const name =
-        String(req.body?.name || '')
-          .trim();
-
-      if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message: 'Format email tidak valid',
-        });
-      }
-
-      if (password.length < 8) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Password minimal 8 karakter',
-        });
-      }
-
-      if (!name) {
-        return res.status(400).json({
-          ok: false,
-          message: 'Nama wajib diisi',
-        });
-      }
-
-      const existing =
-        await pool.query(
-          `
-            SELECT id
-            FROM public.app_users
-            WHERE lower(email) = $1
-            LIMIT 1
-          `,
-          [email]
-        );
-
-      if (existing.rowCount > 0) {
-        return res.status(409).json({
-          ok: false,
-          message:
-            'Email sudah terdaftar. Silakan login.',
-        });
-      }
-
-      const adminMatch =
-        await pool.query(
-          `
-            SELECT user_id
-            FROM public.admin_users
-            WHERE lower(email) = $1
-              AND is_active = true
-            LIMIT 1
-          `,
-          [email]
-        );
-
-      const preferredId =
-        adminMatch.rows[0]?.user_id ??
-        null;
-
-      const passwordHash =
-        await hashPassword(
-          password
-        );
-
-      const result =
-        await pool.query(
-          `
-            INSERT INTO public.app_users (
-              id,
-              email,
-              password_hash,
-              name,
-              is_active,
-              created_at,
-              updated_at
-            )
-            VALUES (
-              COALESCE(
-                $1::uuid,
-                gen_random_uuid()
-              ),
-              $2,
-              $3,
-              $4,
-              true,
-              NOW(),
-              NOW()
-            )
-            RETURNING
-              id,
-              email,
-              name,
-              is_active
-          `,
-          [
-            preferredId,
-            email,
-            passwordHash,
-            name,
-          ]
-        );
-
-      return res.status(201).json({
-        ok: true,
-        data: result.rows[0],
-      });
-    } catch (error) {
-      console.error(
-        '[APP AUTH] register error:',
-        error
-      );
-
-      return res.status(500).json({
-        ok: false,
-        message:
-          'Gagal membuat akun',
-      });
-    }
+  (_req, res) => {
+    return res.status(404).json({
+      ok: false,
+      message:
+        'Pendaftaran akun publik dinonaktifkan',
+    });
   }
 );
 
@@ -594,7 +469,7 @@ app.post(
 
 app.post(
   '/api/upload-drive',
-  requireAuth,
+  optionalAuth,
   uploadWriteLimiter,
   upload.single('file'),
   async (req, res) => {
@@ -629,6 +504,23 @@ app.post(
         return res.status(400).json({
           ok: false,
           message: 'Kategori file tidak valid',
+        });
+      }
+
+      const publicUploadCategories = [
+        'surat_peminjaman',
+        'laporan',
+        'foto_kavling',
+      ];
+
+      if (
+        !publicUploadCategories.includes(category) &&
+        !req.adminUser
+      ) {
+        return res.status(401).json({
+          ok: false,
+          message:
+            'Upload kategori ini hanya untuk admin',
         });
       }
 
@@ -2241,7 +2133,6 @@ app.get(
 
 app.post(
   '/api/proposals',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -2396,7 +2287,6 @@ app.get('/api/about', async (req, res) => {
 // Buat agenda dari halaman user
 app.post(
   '/api/agendas',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -2506,7 +2396,6 @@ app.post(
 // simpan URL lampiran ke PostgreSQL
 app.patch(
   '/api/agendas/:id/surat-url',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -2569,7 +2458,6 @@ app.patch(
 // Ambil 5 laporan terakhir berdasarkan email pelapor
 app.get(
   '/api/reports/recent',
-  requireAuth,
   async (req, res) => {
   try {
     const email = String(req.query.email || '').trim();
@@ -2621,7 +2509,6 @@ app.get(
 // Kirim laporan kerusakan
 app.post(
   '/api/reports',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -5045,7 +4932,6 @@ function escapeBorrowingEmailHtml(value) {
 
 app.post(
   '/api/borrowings',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     const client = await pool.connect();
@@ -11103,7 +10989,7 @@ app.get(
 
 app.get(
   '/api/timeline/events',
-  requireAuth,
+  optionalAuth,
   async (req, res) => {
     try {
       const year = Number(
@@ -11115,6 +11001,7 @@ app.get(
       );
 
       const includeBorrowings =
+        req.isSuperAdmin === true &&
         String(
           req.query.includeBorrowings ??
             'false'
@@ -11317,7 +11204,7 @@ app.get(
 
 app.get(
   '/api/timeline/counts',
-  requireAuth,
+  optionalAuth,
   async (req, res) => {
     try {
       const today =
@@ -11333,6 +11220,7 @@ app.get(
         );
 
       const includeBorrowings =
+        req.isSuperAdmin === true &&
         String(
           req.query.includeBorrowings ??
             'false'
@@ -11503,7 +11391,6 @@ app.get(
 
 app.post(
   '/api/aspirasi',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -11649,8 +11536,6 @@ app.post(
 app.get(
   '/api/kavling/options',
 
-  requireAuth,
-
   async (req, res) => {
     try {
       const [
@@ -11731,7 +11616,6 @@ app.get(
 app.post(
   '/api/kavling',
 
-  requireAuth,
   publicWriteLimiter,
 
   async (req, res) => {
@@ -12095,8 +11979,8 @@ app.post(
 
             'Menunggu Verifikasi',
 
-            // Jangan percaya user_id dari frontend
-            req.authUser.id,
+            // Input publik tidak memerlukan akun.
+            req.authUser?.id ?? null,
           ]
         );
 
@@ -14542,7 +14426,6 @@ app.get(
 
 app.post(
   '/api/agendas/:id/attachments',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -14695,7 +14578,6 @@ app.post(
 
 app.post(
   '/api/agendas/:id/notify',
-  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
