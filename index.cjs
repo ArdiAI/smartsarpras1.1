@@ -22,6 +22,10 @@ const {
   verifyPassword,
 } = require('./app-auth.cjs');
 
+const {
+  registerPasswordResetRoutes,
+} = require('./password-reset.cjs');
+
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -247,6 +251,13 @@ const authWriteLimiter =
     label:
       'auth-write',
   });
+
+registerPasswordResetRoutes(
+  app,
+  {
+    authWriteLimiter,
+  }
+);
 
 
 // =====================================================

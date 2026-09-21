@@ -35,6 +35,7 @@ import BorrowingGuidePage from './pages/BorrowingGuidePage';
 
 // AUTH
 import AuthPage from './pages/AuthPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // ADMIN
 import DashboardPage from './pages/admin/DashboardPage';
@@ -377,12 +378,7 @@ export default function App() {
 
       <Route
         path="/reset-password"
-        element={
-          <Navigate
-            to="/"
-            replace
-          />
-        }
+        element={<ResetPasswordPage />}
       />
 
       {/* =====================================================
