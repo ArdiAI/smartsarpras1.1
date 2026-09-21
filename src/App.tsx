@@ -164,7 +164,6 @@ function BorrowingFeatureRoute() {
 function AuthRoute() {
   const {
     session,
-    adminProfile,
     loading,
   } = useAuth();
 
@@ -299,6 +298,7 @@ function AdminRoute({
 }) {
   const {
     session,
+    adminProfile,
     loading,
   } = useAuth();
 
