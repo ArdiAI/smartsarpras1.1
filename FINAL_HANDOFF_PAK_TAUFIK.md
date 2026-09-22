@@ -193,3 +193,16 @@ Termasuk agenda, lampiran agenda, kavling, inventaris, fasilitas, master kelas, 
 Auth lokal `app_users` + `app_sessions` sengaja dipertahankan agar sistem daftar/login baru tidak tertimpa.
 
 Acuan jumlah data sumber saat handoff ada di `LATEST_DATA_SOURCE.md`.
+
+
+## Catatan penting deployment production
+
+Untuk domain sekolah yang frontend dan backend-nya berada di origin yang sama, gunakan:
+
+```env
+VITE_API_URL=
+```
+
+Frontend production akan memakai path relatif `/api`. Jangan build production dengan `VITE_API_URL=http://localhost:3001`, karena browser pengguna akan menganggap `localhost` sebagai komputer pengguna sendiri.
+
+Pada development lokal, fallback otomatis tetap `http://localhost:3001`.
