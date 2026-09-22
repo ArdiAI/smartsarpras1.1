@@ -219,7 +219,7 @@ async function request(
     }
 
     console.log(
-      '\nINFO  User publik tidak memerlukan akun. Set ACCEPTANCE_ACCESS_TOKEN hanya untuk smoke test panel admin.'
+      '\nINFO  Endpoint backend publik lolos tanpa token. UI Smart Sarpras tetap mewajibkan login; set ACCEPTANCE_ACCESS_TOKEN untuk smoke test endpoint authenticated.'
     );
   } else {
     await runCheck(
