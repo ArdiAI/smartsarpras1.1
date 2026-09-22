@@ -29,7 +29,8 @@
     "restore:sarpras-media": "node scripts/restore-sarpras-media.cjs",
     "repair:local-content": "npm run migrate:local-auth && npm run restore:sarpras-media",
     "diagnose:final": "node scripts/final-diagnostic.cjs",
-    "check:final-diagnostic": "node --check scripts/final-diagnostic.cjs"
+    "check:final-diagnostic": "node --check scripts/final-diagnostic.cjs",
+    "migrate:sarpras-drive-urls": "node scripts/migrate-sarpras-drive-urls.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
