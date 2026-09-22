@@ -334,12 +334,103 @@ app.post(
         duplicate.rows[0] || null;
 
       const canClaimMigratedAccount =
+        Boolean(
+          existingUser &&
+          String(
+            existingUser.email || ''
+          ).toLowerCase() === email &&
+          String(
+            existingUser.password_hash || ''
+          ).startsWith(
+            'reset-required'
+          )
+        );
+
+      if (
         existingUser &&
-        String(existingUser.email || '').toLowerCase() === email &&
-        String(
-          existingUser.password_hash || ''
-        ).startsWith(
-          'reset-required
+        !canClaimMigratedAccount
+      ) {
+        await client.query(
+          'ROLLBACK'
+        );
+
+        return res.status(409).json({
+          ok: false,
+          message:
+            'Email atau username sudah digunakan',
+        });
+      }
+
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
+      let userResult;
+
+      if (
+        canClaimMigratedAccount
+      ) {
+        userResult =
+          await client.query(
+            `
+              UPDATE public.app_users
+              SET
+                username = $1,
+                password_hash = $2,
+                name = $3,
+                is_active = true,
+                updated_at = NOW()
+              WHERE id = $4
+              RETURNING
+                id,
+                username,
+                email,
+                name
+            `,
+            [
+              username,
+              passwordHash,
+              name,
+              existingUser.id,
+            ]
+          );
+      } else {
+        userResult =
+          await client.query(
+            `
+              INSERT INTO public.app_users (
+                username,
+                email,
+                password_hash,
+                name,
+                is_active
+              )
+              VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                true
+              )
+              RETURNING
+                id,
+                username,
+                email,
+                name
+            `,
+            [
+              username,
+              email,
+              passwordHash,
+              name,
+            ]
+          );
+      }
+
+      const user =
+        userResult.rows[0];
+
       // Jika email ini sudah tercatat sebagai admin lama,
       // hubungkan role lama ke akun yang baru didaftarkan.
       await client.query(
