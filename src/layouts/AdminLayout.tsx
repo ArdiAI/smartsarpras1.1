@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { LayoutDashboard, Package, Building2, ClipboardList, CalendarDays, CalendarRange, FileText, Users, Megaphone, MessageSquare, BarChart3, UserCog, ShieldCheck, Workflow, Settings, Mail, LogOut, Menu, X, Moon, Sun, ScrollText, MapPin, FolderOpen, School, Trophy, ChevronDown, BookOpenCheck } from 'lucide-react';
+import { LayoutDashboard, Package, Building2, ClipboardList, CalendarDays, CalendarRange, FileText, Users, Megaphone, MessageSquare, BarChart3, UserCog, ShieldCheck, Workflow, Settings, Mail, LogOut, Menu, X, Moon, Sun, ScrollText, MapPin, FolderOpen, School, Trophy, ChevronDown, BookOpenCheck, FlaskConical } from 'lucide-react';
 import { brand } from '../brand/config';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -20,6 +20,7 @@ const mainNav: NavItem[] = [
   { to: '/admin/announcements', label: 'Pengumuman', icon: Megaphone, permission: 'announcements:read' },
   { to: '/admin/aspirasi', label: 'Aspirasi', icon: MessageSquare, permission: 'aspirasi:read' },
   { to: '/admin/statistics', label: 'Statistik', icon: BarChart3, permission: 'statistics:read' },
+  { to: '/admin/system-testing', label: 'System Testing', icon: FlaskConical, permission: 'dashboard:read' },
 ];
 const lainnyaNav: NavItem[] = [
   { to: '/admin/lainnya/input-kavling', label: 'Input Kavling', icon: MapPin, permission: 'kavling:create' },
