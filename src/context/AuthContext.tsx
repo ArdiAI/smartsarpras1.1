@@ -22,6 +22,7 @@ const API_BASE_URL =
 
 export interface AppUser {
   id: string;
+  username?: string | null;
   email: string;
   name: string;
   user_metadata?: {
