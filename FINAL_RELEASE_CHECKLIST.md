@@ -12,7 +12,7 @@ Gunakan checklist ini sebelum release yang akan diserahkan ke pengurus berikutny
 
 ## Security
 - [ ] Secret lama yang pernah terpublikasi sudah dirotasi.
-- [ ] Leaked-password protection Supabase Auth sudah diaktifkan.
+- [ ] Password auth lokal hanya disimpan sebagai hash `scrypt` dan reset password SMTP sudah dites.
 - [ ] Endpoint write publik membutuhkan session login.
 - [ ] Rate limit aktif untuk submission/upload.
 - [ ] HTTPS aktif untuk frontend dan backend.
@@ -27,7 +27,7 @@ Gunakan checklist ini sebelum release yang akan diserahkan ke pengurus berikutny
 
 ## Ownership
 - [ ] Pak Taufik/technical owner memiliki akses GitHub.
-- [ ] Technical owner memiliki akses Supabase.
+- [ ] Technical owner memiliki akses PostgreSQL sekolah dan backup database.
 - [ ] Technical owner memiliki akses server/domain.
 - [ ] Technical owner memiliki akses Drive/Apps Script.
 - [ ] Tidak ada layanan kritis yang hanya bisa diakses akun pribadi pengurus lama.
