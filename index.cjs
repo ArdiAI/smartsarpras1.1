@@ -267,12 +267,256 @@ registerPasswordResetRoutes(
 app.post(
   '/api/auth/register',
   authWriteLimiter,
-  (_req, res) => {
-    return res.status(404).json({
-      ok: false,
-      message:
-        'Pendaftaran akun publik tidak tersedia',
-    });
+  async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+      const username = String(
+        req.body?.username || ''
+      )
+        .trim()
+        .toLowerCase();
+
+      const email = String(
+        req.body?.email || ''
+      )
+        .trim()
+        .toLowerCase();
+
+      const name = String(
+        req.body?.name || ''
+      ).trim();
+
+      const password = String(
+        req.body?.password || ''
+      );
+
+      if (
+        !username ||
+        !email ||
+        !name ||
+        !password
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Username, nama, email, dan password wajib diisi',
+        });
+      }
+
+      if (
+        !/^[a-z0-9._-]{3,30}$/.test(
+          username
+        )
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Username 3-30 karakter dan hanya boleh berisi huruf kecil, angka, titik, garis bawah, atau strip',
+        });
+      }
+
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          email
+        )
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Format email tidak valid',
+        });
+      }
+
+      if (
+        password.length < 10
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Password minimal 10 karakter',
+        });
+      }
+
+      await client.query(
+        'BEGIN'
+      );
+
+      const duplicate =
+        await client.query(
+          `
+            SELECT
+              id,
+              username,
+              email,
+              password_hash
+            FROM public.app_users
+            WHERE
+              lower(email) = $1
+              OR lower(username) = $2
+            LIMIT 1
+            FOR UPDATE
+          `,
+          [
+            email,
+            username,
+          ]
+        );
+
+      const existingUser =
+        duplicate.rows[0] ||
+        null;
+
+      const canClaimMigratedAccount =
+        Boolean(
+          existingUser &&
+          String(
+            existingUser.email || ''
+          ).toLowerCase() ===
+            email &&
+          String(
+            existingUser.password_hash ||
+              ''
+          ).startsWith(
+            'reset-required'
+          )
+        );
+
+      if (
+        existingUser &&
+        !canClaimMigratedAccount
+      ) {
+        await client.query(
+          'ROLLBACK'
+        );
+
+        return res.status(409).json({
+          ok: false,
+          message:
+            'Email atau username sudah digunakan',
+        });
+      }
+
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
+      let userResult;
+
+      if (
+        canClaimMigratedAccount
+      ) {
+        userResult =
+          await client.query(
+            `
+              UPDATE public.app_users
+              SET
+                username = $1,
+                password_hash = $2,
+                name = $3,
+                is_active = true,
+                updated_at = NOW()
+              WHERE id = $4
+              RETURNING
+                id,
+                username,
+                email,
+                name
+            `,
+            [
+              username,
+              passwordHash,
+              name,
+              existingUser.id,
+            ]
+          );
+      } else {
+        userResult =
+          await client.query(
+            `
+              INSERT INTO public.app_users (
+                username,
+                email,
+                password_hash,
+                name,
+                is_active
+              )
+              VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                true
+              )
+              RETURNING
+                id,
+                username,
+                email,
+                name
+            `,
+            [
+              username,
+              email,
+              passwordHash,
+              name,
+            ]
+          );
+      }
+
+      const user =
+        userResult.rows[0];
+
+      await client.query(
+        `
+          UPDATE public.admin_users
+          SET
+            user_id = $1,
+            name = COALESCE(
+              NULLIF(name, ''),
+              $2
+            )
+          WHERE lower(email) = $3
+        `,
+        [
+          user.id,
+          user.name,
+          email,
+        ]
+      );
+
+      await client.query(
+        'COMMIT'
+      );
+
+      return res
+        .status(201)
+        .json({
+          ok: true,
+          data: {
+            user,
+          },
+          message:
+            'Pendaftaran berhasil. Silakan masuk.',
+        });
+    } catch (error) {
+      await client.query(
+        'ROLLBACK'
+      );
+
+      console.error(
+        '[APP AUTH] register error:',
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        message:
+          'Gagal melakukan pendaftaran',
+      });
+    } finally {
+      client.release();
+    }
   }
 );
 
@@ -282,19 +526,23 @@ app.post(
   authWriteLimiter,
   async (req, res) => {
     try {
-      const email =
-        String(req.body?.email || '')
+      const identifier =
+        String(
+          req.body?.identifier ??
+          req.body?.email ??
+          ''
+        )
           .trim()
           .toLowerCase();
 
       const password =
         String(req.body?.password || '');
 
-      if (!email || !password) {
+      if (!identifier || !password) {
         return res.status(400).json({
           ok: false,
           message:
-            'Email dan password wajib diisi',
+            'Username/email dan password wajib diisi',
         });
       }
 
@@ -303,16 +551,20 @@ app.post(
           `
             SELECT
               id,
+              username,
               email,
               name,
               password_hash
             FROM public.app_users
-            WHERE lower(email) = $1
+            WHERE (
+              lower(email) = $1
+              OR lower(username) = $1
+            )
               AND is_active = true
             LIMIT 1
           `,
           [
-            email,
+            identifier,
           ]
         );
 
@@ -334,7 +586,7 @@ app.post(
         return res.status(401).json({
           ok: false,
           message:
-            'Email atau password salah',
+            'Username/email atau password salah',
         });
       }
 
@@ -13105,44 +13357,55 @@ app.delete(
 
 // =====================================================
 // ADMIN - USER MANAGEMENT
-// =====================================================
-
-// =====================================================
-// GET USERS + ROLE
+// Semua akun berasal dari app_users.
+// Role admin diberikan dengan menghubungkan app_users
+// ke admin_users + admin_user_roles.
 // =====================================================
 
 app.get(
   '/api/admin/users',
   requireAdmin,
-  async (req, res) => {
+  async (_req, res) => {
     try {
       const result =
         await pool.query(`
           SELECT
-            au.id,
-            au.user_id,
-            au.email,
-            au.name,
+            u.id,
+            u.id AS user_id,
+            u.username,
+            u.email,
+            u.name,
+            u.is_active,
+            u.created_at,
+            au.id AS admin_id,
             au.role,
-            au.is_active,
-            au.created_at,
 
             (
               SELECT r.name
               FROM public.admin_user_roles aur
               INNER JOIN public.roles r
                 ON r.id = aur.role_id
-              WHERE aur.admin_user_id = au.id
-              ORDER BY r.level DESC NULLS LAST
+              WHERE
+                aur.admin_user_id = au.id
+              ORDER BY
+                r.level DESC NULLS LAST
               LIMIT 1
             ) AS role_name
 
-          FROM public.admin_users au
+          FROM public.app_users u
+
+          LEFT JOIN public.admin_users au
+            ON
+              au.user_id = u.id
+              OR (
+                au.user_id IS NULL
+                AND lower(au.email) =
+                    lower(u.email)
+              )
 
           ORDER BY
-            au.created_at DESC
+            u.created_at DESC
         `);
-
 
       res.json({
         ok: true,
@@ -13154,7 +13417,6 @@ app.get(
         error
       );
 
-
       res.status(500).json({
         ok: false,
         message:
@@ -13164,15 +13426,10 @@ app.get(
   }
 );
 
-
-// =====================================================
-// GET ACTIVE ROLES
-// =====================================================
-
 app.get(
   '/api/admin/users/roles',
   requireAdmin,
-  async (req, res) => {
+  async (_req, res) => {
     try {
       const result =
         await pool.query(`
@@ -13184,14 +13441,12 @@ app.get(
 
           FROM public.roles
 
-          WHERE
-            is_active = true
+          WHERE is_active = true
 
           ORDER BY
             level DESC NULLS LAST,
             name ASC
         `);
-
 
       res.json({
         ok: true,
@@ -13203,7 +13458,6 @@ app.get(
         error
       );
 
-
       res.status(500).json({
         ok: false,
         message:
@@ -13213,21 +13467,13 @@ app.get(
   }
 );
 
-
-// =====================================================
-// CREATE ADMIN USER
-// =====================================================
-
 app.post(
   '/api/admin/users',
-
   requireAdmin,
-
   requirePermission(
     'users',
     'create'
   ),
-
   async (req, res) => {
     const client =
       await pool.connect();
@@ -13235,43 +13481,51 @@ app.post(
     try {
       const email =
         String(
-          req.body?.email ??
-            ''
+          req.body?.email || ''
+        )
+          .trim()
+          .toLowerCase();
+
+      const username =
+        String(
+          req.body?.username ||
+          email.split('@')[0] ||
+          ''
         )
           .trim()
           .toLowerCase();
 
       const name =
         String(
-          req.body?.name ??
-            ''
+          req.body?.name || ''
         ).trim();
 
       const password =
         String(
-          req.body?.password ??
-            ''
+          req.body?.password || ''
         );
 
       const roleId =
         String(
-          req.body?.role_id ??
-            ''
+          req.body?.role_id || ''
         ).trim();
 
-      if (!email) {
+      if (
+        !username ||
+        !/^[a-z0-9._-]{3,30}$/.test(
+          username
+        )
+      ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Email wajib diisi',
+            'Username tidak valid',
         });
       }
 
-      const emailPattern =
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
       if (
-        !emailPattern.test(
+        !email ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
           email
         )
       ) {
@@ -13283,8 +13537,7 @@ app.post(
       }
 
       if (
-        password.length <
-        10
+        password.length < 10
       ) {
         return res.status(400).json({
           ok: false,
@@ -13300,25 +13553,21 @@ app.post(
       const duplicate =
         await client.query(
           `
-            SELECT email
-            FROM (
-              SELECT email
-              FROM public.admin_users
-              UNION ALL
-              SELECT email
-              FROM public.app_users
-            ) users
+            SELECT id
+            FROM public.app_users
             WHERE
-              LOWER(email) =
-                LOWER($1)
+              lower(email) = $1
+              OR lower(username) = $2
             LIMIT 1
           `,
-          [email]
+          [
+            email,
+            username,
+          ]
         );
 
       if (
-        duplicate.rowCount >
-        0
+        duplicate.rowCount > 0
       ) {
         await client.query(
           'ROLLBACK'
@@ -13327,12 +13576,53 @@ app.post(
         return res.status(409).json({
           ok: false,
           message:
-            'Email sudah terdaftar',
+            'Email atau username sudah terdaftar',
         });
       }
 
-      let roleName =
-        null;
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
+      const appUserResult =
+        await client.query(
+          `
+            INSERT INTO public.app_users (
+              username,
+              email,
+              password_hash,
+              name,
+              is_active
+            )
+            VALUES (
+              $1,
+              $2,
+              $3,
+              $4,
+              true
+            )
+            RETURNING
+              id,
+              username,
+              email,
+              name,
+              is_active,
+              created_at
+          `,
+          [
+            username,
+            email,
+            passwordHash,
+            name || null,
+          ]
+        );
+
+      const appUser =
+        appUserResult.rows[0];
+
+      let adminId = null;
+      let roleName = null;
 
       if (roleId) {
         const roleResult =
@@ -13344,17 +13634,16 @@ app.post(
               FROM public.roles
               WHERE
                 id = $1
-                AND
-                is_active = true
+                AND is_active = true
               LIMIT 1
             `,
             [roleId]
           );
 
-        if (
-          roleResult.rowCount ===
-          0
-        ) {
+        const role =
+          roleResult.rows[0];
+
+        if (!role) {
           await client.query(
             'ROLLBACK'
           );
@@ -13367,88 +13656,44 @@ app.post(
         }
 
         roleName =
-          roleResult.rows[0].name;
-      }
+          role.name;
 
-      const passwordHash =
-        await hashPassword(
-          password
-        );
-
-      const appUserResult =
-        await client.query(
-          `
-            INSERT INTO
-              public.app_users (
-                email,
-                password_hash,
-                name,
-                is_active
-              )
-            VALUES (
-              $1,
-              $2,
-              $3,
-              true
-            )
-            RETURNING id
-          `,
-          [
-            email,
-            passwordHash,
-            name || null,
-          ]
-        );
-
-      const appUserId =
-        appUserResult.rows[0].id;
-
-      const userResult =
-        await client.query(
-          `
-            INSERT INTO
-              public.admin_users (
+        const adminResult =
+          await client.query(
+            `
+              INSERT INTO public.admin_users (
                 user_id,
                 email,
                 name,
                 role,
                 is_active
               )
-            VALUES (
-              $1,
-              $2,
-              $3,
-              $4,
-              true
-            )
-            RETURNING
-              id,
-              user_id,
-              email,
-              name,
-              role,
-              is_active,
-              created_at
-          `,
-          [
-            appUserId,
-            email,
-            name || null,
-            roleName,
-          ]
-        );
+              VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                true
+              )
+              RETURNING id
+            `,
+            [
+              appUser.id,
+              appUser.email,
+              appUser.name,
+              role.name,
+            ]
+          );
 
-      const user =
-        userResult.rows[0];
+        adminId =
+          adminResult.rows[0].id;
 
-      if (roleId) {
         await client.query(
           `
-            INSERT INTO
-              public.admin_user_roles (
-                admin_user_id,
-                role_id
-              )
+            INSERT INTO public.admin_user_roles (
+              admin_user_id,
+              role_id
+            )
             VALUES (
               $1,
               $2
@@ -13456,8 +13701,8 @@ app.post(
             ON CONFLICT DO NOTHING
           `,
           [
-            user.id,
-            roleId,
+            adminId,
+            role.id,
           ]
         );
       }
@@ -13469,7 +13714,13 @@ app.post(
       res.status(201).json({
         ok: true,
         data: {
-          ...user,
+          ...appUser,
+          user_id:
+            appUser.id,
+          admin_id:
+            adminId,
+          role:
+            roleName,
           role_name:
             roleName,
         },
@@ -13495,33 +13746,22 @@ app.post(
   }
 );
 
-
-// =====================================================
-// CHANGE ROLE
-// =====================================================
-
 app.patch(
   '/api/admin/users/:id/role',
-
   requireAdmin,
-
   requirePermission(
     'users',
     'update'
   ),
-
   async (req, res) => {
     const client =
       await pool.connect();
 
-
     try {
       const roleId =
         String(
-          req.body?.role_id ??
-            ''
+          req.body?.role_id || ''
         ).trim();
-
 
       if (!roleId) {
         return res.status(400).json({
@@ -13531,22 +13771,21 @@ app.patch(
         });
       }
 
-
       await client.query(
         'BEGIN'
       );
 
-
-      const adminResult =
+      const userResult =
         await client.query(
           `
-            SELECT id
-
-            FROM public.admin_users
-
-            WHERE
-              id = $1
-
+            SELECT
+              id,
+              username,
+              email,
+              name,
+              is_active
+            FROM public.app_users
+            WHERE id = $1
             FOR UPDATE
           `,
           [
@@ -13554,15 +13793,13 @@ app.patch(
           ]
         );
 
+      const user =
+        userResult.rows[0];
 
-      if (
-        adminResult.rowCount ===
-        0
-      ) {
+      if (!user) {
         await client.query(
           'ROLLBACK'
         );
-
 
         return res.status(404).json({
           ok: false,
@@ -13571,22 +13808,16 @@ app.patch(
         });
       }
 
-
       const roleResult =
         await client.query(
           `
             SELECT
               id,
               name
-
             FROM public.roles
-
             WHERE
               id = $1
-
-              AND
-              is_active = true
-
+              AND is_active = true
             LIMIT 1
           `,
           [
@@ -13594,15 +13825,13 @@ app.patch(
           ]
         );
 
+      const role =
+        roleResult.rows[0];
 
-      if (
-        roleResult.rowCount ===
-        0
-      ) {
+      if (!role) {
         await client.query(
           'ROLLBACK'
         );
-
 
         return res.status(400).json({
           ok: false,
@@ -13611,78 +13840,119 @@ app.patch(
         });
       }
 
+      let adminResult =
+        await client.query(
+          `
+            SELECT id
+            FROM public.admin_users
+            WHERE
+              user_id = $1
+              OR lower(email) =
+                 lower($2)
+            LIMIT 1
+            FOR UPDATE
+          `,
+          [
+            user.id,
+            user.email,
+          ]
+        );
 
-      const role =
-        roleResult.rows[0];
+      let adminId =
+        adminResult.rows[0]?.id;
 
+      if (!adminId) {
+        adminResult =
+          await client.query(
+            `
+              INSERT INTO public.admin_users (
+                user_id,
+                email,
+                name,
+                role,
+                is_active
+              )
+              VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                true
+              )
+              RETURNING id
+            `,
+            [
+              user.id,
+              user.email,
+              user.name,
+              role.name,
+            ]
+          );
+
+        adminId =
+          adminResult.rows[0].id;
+      } else {
+        await client.query(
+          `
+            UPDATE public.admin_users
+            SET
+              user_id = $1,
+              email = $2,
+              name = $3,
+              role = $4,
+              is_active = true
+            WHERE id = $5
+          `,
+          [
+            user.id,
+            user.email,
+            user.name,
+            role.name,
+            adminId,
+          ]
+        );
+      }
 
       await client.query(
         `
-          UPDATE
-            public.admin_users
-
-          SET
-            role = $1
-
-          WHERE
-            id = $2
+          DELETE FROM public.admin_user_roles
+          WHERE admin_user_id = $1
         `,
         [
-          role.name,
-          req.params.id,
+          adminId,
         ]
       );
 
-
       await client.query(
         `
-          DELETE FROM
-            public.admin_user_roles
-
-          WHERE
-            admin_user_id = $1
-        `,
-        [
-          req.params.id,
-        ]
-      );
-
-
-      await client.query(
-        `
-          INSERT INTO
-            public.admin_user_roles (
-              admin_user_id,
-              role_id
-            )
-
+          INSERT INTO public.admin_user_roles (
+            admin_user_id,
+            role_id
+          )
           VALUES (
             $1,
             $2
           )
         `,
         [
-          req.params.id,
+          adminId,
           role.id,
         ]
       );
-
 
       await client.query(
         'COMMIT'
       );
 
-
       res.json({
         ok: true,
-
         data: {
           id:
-            req.params.id,
-
+            user.id,
+          admin_id:
+            adminId,
           role_id:
             role.id,
-
           role_name:
             role.name,
         },
@@ -13692,12 +13962,10 @@ app.patch(
         'ROLLBACK'
       );
 
-
       console.error(
         '[ADMIN USERS ROLE] error:',
         error
       );
-
 
       res.status(500).json({
         ok: false,
@@ -13710,21 +13978,13 @@ app.patch(
   }
 );
 
-
-// =====================================================
-// ACTIVE / NONACTIVE
-// =====================================================
-
 app.patch(
   '/api/admin/users/:id/status',
-
   requireAdmin,
-
   requirePermission(
     'users',
     'update'
   ),
-
   async (req, res) => {
     try {
       if (
@@ -13738,22 +13998,17 @@ app.patch(
         });
       }
 
-
       const result =
         await pool.query(
           `
-            UPDATE
-              public.admin_users
-
+            UPDATE public.app_users
             SET
-              is_active = $1
-
-            WHERE
-              id = $2
-
+              is_active = $1,
+              updated_at = NOW()
+            WHERE id = $2
             RETURNING
               id,
-              user_id,
+              username,
               email,
               is_active
           `,
@@ -13763,11 +14018,10 @@ app.patch(
           ]
         );
 
+      const user =
+        result.rows[0];
 
-      if (
-        result.rowCount ===
-        0
-      ) {
+      if (!user) {
         return res.status(404).json({
           ok: false,
           message:
@@ -13775,55 +14029,50 @@ app.patch(
         });
       }
 
-      const changedUser =
-        result.rows[0];
+      await pool.query(
+        `
+          UPDATE public.admin_users
+          SET is_active = $1
+          WHERE
+            user_id = $2
+            OR lower(email) =
+               lower($3)
+        `,
+        [
+          req.body.is_active,
+          user.id,
+          user.email,
+        ]
+      );
 
       if (
-        changedUser.user_id
+        req.body.is_active ===
+        false
       ) {
         await pool.query(
           `
-            UPDATE public.app_users
-            SET
-              is_active = $1,
-              updated_at = NOW()
-            WHERE id = $2
+            UPDATE public.app_sessions
+            SET revoked_at = NOW()
+            WHERE
+              user_id = $1
+              AND revoked_at IS NULL
           `,
           [
-            req.body.is_active,
-            changedUser.user_id,
+            user.id,
           ]
         );
-
-        if (
-          req.body.is_active ===
-          false
-        ) {
-          await pool.query(
-            `
-              UPDATE public.app_sessions
-              SET revoked_at = NOW()
-              WHERE user_id = $1
-                AND revoked_at IS NULL
-            `,
-            [
-              changedUser.user_id,
-            ]
-          );
-        }
       }
 
       res.json({
         ok: true,
         data:
-          changedUser,
+          user,
       });
     } catch (error) {
       console.error(
         '[ADMIN USERS STATUS] error:',
         error
       );
-
 
       res.status(500).json({
         ok: false,
@@ -13834,45 +14083,31 @@ app.patch(
   }
 );
 
-
-// =====================================================
-// DELETE USER
-// =====================================================
-
 app.delete(
   '/api/admin/users/:id',
-
   requireAdmin,
-
   requirePermission(
     'users',
     'delete'
   ),
-
   async (req, res) => {
     const client =
       await pool.connect();
-
 
     try {
       await client.query(
         'BEGIN'
       );
 
-
       const userResult =
         await client.query(
           `
             SELECT
               id,
-              user_id,
+              username,
               email
-
-            FROM public.admin_users
-
-            WHERE
-              id = $1
-
+            FROM public.app_users
+            WHERE id = $1
             FOR UPDATE
           `,
           [
@@ -13880,16 +14115,13 @@ app.delete(
           ]
         );
 
-
       const user =
         userResult.rows[0];
-
 
       if (!user) {
         await client.query(
           'ROLLBACK'
         );
-
 
         return res.status(404).json({
           ok: false,
@@ -13898,71 +14130,84 @@ app.delete(
         });
       }
 
-
-      await client.query(
-        `
-          DELETE FROM
-            public.admin_user_roles
-
-          WHERE
-            admin_user_id = $1
-        `,
-        [
-          user.id,
-        ]
-      );
-
-
-      await client.query(
-        `
-          DELETE FROM
-            public.admin_users
-
-          WHERE
-            id = $1
-        `,
-        [
-          user.id,
-        ]
-      );
-
-      if (
-        user.user_id
-      ) {
+      const admins =
         await client.query(
           `
-            DELETE FROM public.app_sessions
-            WHERE user_id = $1
+            SELECT id
+            FROM public.admin_users
+            WHERE
+              user_id = $1
+              OR lower(email) =
+                 lower($2)
           `,
           [
-            user.user_id,
+            user.id,
+            user.email,
           ]
         );
 
+      for (
+        const admin of
+        admins.rows
+      ) {
         await client.query(
           `
-            DELETE FROM public.app_users
-            WHERE id = $1
+            DELETE FROM
+              public.admin_user_roles
+            WHERE
+              admin_user_id = $1
           `,
           [
-            user.user_id,
+            admin.id,
           ]
         );
       }
 
+      await client.query(
+        `
+          DELETE FROM public.admin_users
+          WHERE
+            user_id = $1
+            OR lower(email) =
+               lower($2)
+        `,
+        [
+          user.id,
+          user.email,
+        ]
+      );
+
+      await client.query(
+        `
+          DELETE FROM public.app_sessions
+          WHERE user_id = $1
+        `,
+        [
+          user.id,
+        ]
+      );
+
+      await client.query(
+        `
+          DELETE FROM public.app_users
+          WHERE id = $1
+        `,
+        [
+          user.id,
+        ]
+      );
 
       await client.query(
         'COMMIT'
       );
 
-
       res.json({
         ok: true,
-
         data: {
           id:
             user.id,
-
+          username:
+            user.username,
           email:
             user.email,
         },
@@ -13972,12 +14217,10 @@ app.delete(
         'ROLLBACK'
       );
 
-
       console.error(
         '[ADMIN USERS DELETE] error:',
         error
       );
-
 
       res.status(500).json({
         ok: false,
