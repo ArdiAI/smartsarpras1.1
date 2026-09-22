@@ -3214,6 +3214,51 @@ app.delete(
   }
 );
 
+async function ensureAnnouncementsSchema() {
+  await pool.query(`
+    ALTER TABLE public.announcements
+      ADD COLUMN IF NOT EXISTS author text,
+      ADD COLUMN IF NOT EXISTS image_url text,
+      ADD COLUMN IF NOT EXISTS published_at timestamptz,
+      ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+    ALTER TABLE public.announcements
+      ALTER COLUMN description SET DEFAULT '',
+      ALTER COLUMN priority SET DEFAULT 'normal',
+      ALTER COLUMN status SET DEFAULT 'draft';
+
+    UPDATE public.announcements
+    SET
+      description = COALESCE(description, ''),
+      priority = COALESCE(NULLIF(trim(priority), ''), 'normal'),
+      status = COALESCE(NULLIF(trim(status), ''), 'draft'),
+      updated_at = COALESCE(updated_at, created_at, now());
+
+    ALTER TABLE public.announcements
+      ALTER COLUMN description SET NOT NULL;
+
+    ALTER TABLE public.announcements
+      DROP CONSTRAINT IF EXISTS announcements_priority_check,
+      DROP CONSTRAINT IF EXISTS announcements_status_check;
+
+    ALTER TABLE public.announcements
+      ADD CONSTRAINT announcements_priority_check
+        CHECK (
+          priority IN (
+            'low', 'normal', 'high', 'urgent',
+            'rendah', 'sedang', 'tinggi', 'Normal'
+          )
+        ),
+      ADD CONSTRAINT announcements_status_check
+        CHECK (
+          status IN (
+            'draft', 'published', 'archived',
+            'aktif', 'nonaktif', 'Draf'
+          )
+        );
+  `);
+}
+
 // =====================================================
 // ANNOUNCEMENTS ADMIN
 // =====================================================
@@ -3343,7 +3388,7 @@ app.post(
         `,
         [
           title.trim(),
-          description?.trim() || null,
+          typeof description === 'string' ? description.trim() : '',
           priority,
           status,
           publishedAt,
@@ -3455,7 +3500,7 @@ app.patch(
         `,
         [
           title.trim(),
-          description?.trim() || null,
+          typeof description === 'string' ? description.trim() : '',
           priority,
           status,
           publishedAt,
@@ -16720,6 +16765,7 @@ app.delete(
 async function startServer() {
   try {
     await ensureBorrowingGuideSchema();
+    await ensureAnnouncementsSchema();
 
     app.listen(PORT, () => {
       console.log('');
