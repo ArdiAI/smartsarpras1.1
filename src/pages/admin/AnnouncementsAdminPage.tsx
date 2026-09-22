@@ -6,7 +6,7 @@ import {
   type FormEvent,
 } from 'react';
 
-import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/appSession';
 import { uploadFileToDrive } from '../../lib/upload';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -24,8 +24,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:3001';
+  (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 interface Announcement {
   id: string;
@@ -103,16 +102,8 @@ const statusLabels: Record<string, string> = {
 };
 
 async function getAccessToken() {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const token = session?.access_token;
+  const token =
+    getSessionToken();
 
   if (!token) {
     throw new Error(

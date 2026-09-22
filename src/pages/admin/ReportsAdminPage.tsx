@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/appSession';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
 import { FileText, Loader2, Search, X, Save, AlertTriangle, Trash2, FileSpreadsheet } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 interface DamageReport {
   id: string;
@@ -44,11 +44,10 @@ const statusStyles: Record<string, string> = {
 const statusLabels: Record<string, string> = { pending: 'Menunggu', in_progress: 'Diproses', resolved: 'Selesai' };
 
 async function adminApi<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) throw new Error(error.message);
-  if (!session?.access_token) throw new Error('Sesi login tidak ditemukan. Silakan login kembali.');
+  const token = getSessionToken();
+  if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login kembali.');
   const headers = new Headers(options.headers);
-  headers.set('Authorization', `Bearer ${session.access_token}`);
+  headers.set('Authorization', `Bearer ${token}`);
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   const result = await response.json().catch(() => null) as ApiResponse<T> | null;

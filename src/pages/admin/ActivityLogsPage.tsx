@@ -5,7 +5,7 @@ import {
   useMemo,
 } from 'react';
 
-import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/appSession';
 import { cn } from '../../utils/cn';
 import { showToast } from '../../components/Toast';
 
@@ -21,8 +21,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:3001';
+  (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 interface ActivityLog {
   id: string;
@@ -143,20 +142,8 @@ function formatDate(
 }
 
 async function getAccessToken() {
-  const {
-    data,
-    error,
-  } =
-    await supabase.auth.getSession();
-
-  if (error) {
-    throw new Error(
-      error.message
-    );
-  }
-
   const token =
-    data.session?.access_token;
+    getSessionToken();
 
   if (!token) {
     throw new Error(
