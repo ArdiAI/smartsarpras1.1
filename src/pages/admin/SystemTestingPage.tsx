@@ -989,12 +989,23 @@ export default function SystemTestingPage() {
 
         {
           label:
-            'Supabase client (Auth)',
+            'App session helper',
 
           mod:
             () =>
               import(
-                '../../lib/supabase'
+                '../../lib/appSession'
+              ),
+        },
+
+        {
+          label:
+            'Google Drive upload helper',
+
+          mod:
+            () =>
+              import(
+                '../../lib/upload'
               ),
         },
 
