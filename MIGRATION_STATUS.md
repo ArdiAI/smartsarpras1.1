@@ -2,8 +2,8 @@
 
 ## Arsitektur aktif
 
-- **Supabase:** Auth saja (login, session, reset password).
-- **PostgreSQL:** seluruh data aplikasi.
+- **PostgreSQL:** seluruh data aplikasi + auth lokal (`app_users`, `app_sessions`, reset token).
+- **SMTP backend:** reset password dan notifikasi email.
 - **Google Drive via Apps Script:** file/foto/lampiran.
 - **Node/Express (`index.cjs`):** API penghubung frontend ke PostgreSQL dan Google Drive.
 
@@ -30,7 +30,7 @@
 
 ## Catatan
 
-- Email/notifikasi peminjaman masih memiliki jalur lama yang dapat memakai Supabase Edge Function jika route notifikasi dijalankan. Fitur ini tidak memengaruhi migrasi data/storage dan sebelumnya memang ditunda.
+- Notifikasi agenda dan peminjaman memakai SMTP backend. Supabase tidak diperlukan untuk runtime utama.
 - File Google Drive tidak otomatis dihapus ketika record PostgreSQL dihapus. Ini sengaja agar penghapusan data tidak gagal hanya karena file Drive.
 - `server/` di project lama adalah backend lama. Paket final menggunakan **`index.cjs` di root**.
 
@@ -65,4 +65,4 @@ Backend default: `http://localhost:3001`.
 - GitHub Actions menjalankan `npm run check` pada push/PR ke main.
 - Dependabot dijadwalkan mingguan.
 - Backup/restore PostgreSQL tersedia melalui `npm run backup:db` dan `npm run restore:db`.
-- Supabase Security Advisor tidak lagi memiliki temuan ERROR. Warning yang tersisa: leaked-password protection perlu diaktifkan manual pada Auth settings.
+- Runtime production utama tidak bergantung pada Supabase Auth atau Supabase Storage.
