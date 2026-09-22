@@ -14,8 +14,7 @@ import { authFetch } from '../lib/authFetch';
 import { getDefaultWorkflow, getWorkflowSteps } from '../lib/workflow';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:3001';
+  (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 const jenisOptions = [
   'Akademik',
