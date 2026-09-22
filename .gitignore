@@ -5,3 +5,8 @@ dist/
 *.log
 !.env.example
 backups/
+
+# TypeScript build artifacts
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
