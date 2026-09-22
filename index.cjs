@@ -733,7 +733,7 @@ app.post(
 
 app.post(
   '/api/upload-drive',
-  optionalAuth,
+  requireAuth,
   uploadWriteLimiter,
   upload.single('file'),
   async (req, res) => {
@@ -2397,6 +2397,7 @@ app.get(
 
 app.post(
   '/api/proposals',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -2551,6 +2552,7 @@ app.get('/api/about', async (req, res) => {
 // Buat agenda dari halaman user
 app.post(
   '/api/agendas',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -2656,10 +2658,11 @@ app.post(
 });
 
 
-// Setelah file masuk Supabase Storage,
+// Setelah file masuk Google Drive,
 // simpan URL lampiran ke PostgreSQL
 app.patch(
   '/api/agendas/:id/surat-url',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -2722,6 +2725,7 @@ app.patch(
 // Ambil 5 laporan terakhir berdasarkan email pelapor
 app.get(
   '/api/reports/recent',
+  requireAuth,
   async (req, res) => {
   try {
     const email = String(req.query.email || '').trim();
@@ -2773,6 +2777,7 @@ app.get(
 // Kirim laporan kerusakan
 app.post(
   '/api/reports',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
   try {
@@ -5241,6 +5246,7 @@ function escapeBorrowingEmailHtml(value) {
 
 app.post(
   '/api/borrowings',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     const client = await pool.connect();
@@ -6216,14 +6222,11 @@ app.post(
 
 
         // ===================================================
-        // SEND VIA EXISTING SUPABASE FUNCTION
-        // Supabase Database TIDAK dipakai
+        // SEND VIA SMTP BACKEND
         // ===================================================
 
         if (
-          recipientEmails.length > 0 &&
-          process.env.SUPABASE_URL &&
-          process.env.SUPABASE_ANON_KEY
+          recipientEmails.length > 0
         ) {
           const safeItems =
             normalizedItems
@@ -11740,6 +11743,7 @@ app.get(
 
 app.post(
   '/api/aspirasi',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -11965,6 +11969,7 @@ app.get(
 app.post(
   '/api/kavling',
 
+  requireAuth,
   publicWriteLimiter,
 
   async (req, res) => {
@@ -12368,6 +12373,7 @@ app.post(
 
 app.get(
   '/api/kavling',
+  requireAuth,
   async (req, res) => {
     try {
       const result =
@@ -14854,6 +14860,7 @@ app.get(
 
 app.post(
   '/api/agendas/:id/attachments',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
@@ -15006,6 +15013,7 @@ app.post(
 
 app.post(
   '/api/agendas/:id/notify',
+  requireAuth,
   publicWriteLimiter,
   async (req, res) => {
     try {
