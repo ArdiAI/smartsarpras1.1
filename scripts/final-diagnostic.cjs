@@ -56,10 +56,16 @@ async function main() {
     );
   }
 
+  const driveConfigured =
+    hasEnv('GOOGLE_APPS_SCRIPT_URL') &&
+    hasEnv('GOOGLE_APPS_SCRIPT_TOKEN');
+
   add(
     'Google Drive upload',
-    hasEnv('GOOGLE_APPS_SCRIPT_URL') ? 'PASS' : 'WARN',
-    hasEnv('GOOGLE_APPS_SCRIPT_URL') ? 'configured' : 'GOOGLE_APPS_SCRIPT_URL kosong'
+    driveConfigured ? 'PASS' : 'WARN',
+    driveConfigured
+      ? 'URL + token configured'
+      : 'GOOGLE_APPS_SCRIPT_URL / GOOGLE_APPS_SCRIPT_TOKEN belum lengkap'
   );
 
   add(
