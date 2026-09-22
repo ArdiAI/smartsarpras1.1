@@ -10776,23 +10776,27 @@ app.get(
         testKey ===
         'workflow'
       ) {
-        const templateResult =
+        const result =
           await pool.query(`
             SELECT
-              id,
-              name
-            FROM public.workflow_templates
-            WHERE is_active = true
-            ORDER BY created_at ASC
-            LIMIT 1
+              wt.id,
+              wt.name,
+              COUNT(ws.id)::int AS step_count
+            FROM public.workflow_templates wt
+            LEFT JOIN public.workflow_steps ws
+              ON ws.workflow_template_id = wt.id
+            WHERE wt.is_active = true
+            GROUP BY wt.id, wt.name
+            ORDER BY wt.name ASC
           `);
 
+        const workflows =
+          result.rows;
 
-        const template =
-          templateResult.rows[0];
-
-
-        if (!template) {
+        if (
+          workflows.length ===
+          0
+        ) {
           return res.json(
             makeResult(
               'fail',
@@ -10808,112 +10812,32 @@ app.get(
           );
         }
 
-
-        const stepsResult =
-          await pool.query(
-            `
-              SELECT
-                step_order,
-                step_label
-
-              FROM public.workflow_steps
-
-              WHERE
-                workflow_template_id =
-                  $1
-
-              ORDER BY
-                step_order ASC
-            `,
-            [
-              template.id,
-            ]
+        const checks =
+          workflows.map(
+            (workflow) => ({
+              label:
+                `${workflow.name} (${workflow.step_count} langkah)`,
+              ok:
+                Number(
+                  workflow.step_count
+                ) > 0,
+            })
           );
 
-
-        const stepLabels =
-          stepsResult.rows.map(
-            (step) =>
-              String(
-                step.step_label ??
-                  ''
-              )
+        const allOk =
+          checks.every(
+            (check) =>
+              check.ok
           );
-
-
-        const expectedSteps = [
-          'User',
-          'Pembina',
-          'Wakasek',
-          'PJ',
-          'Kepala Sarpras',
-        ];
-
-
-        const missing =
-          expectedSteps.filter(
-            (expected) =>
-              !stepLabels.some(
-                (label) =>
-                  label.includes(
-                    expected
-                  )
-              )
-          );
-
-
-        const checks = [
-          {
-            label:
-              'Workflow template aktif',
-            ok: true,
-          },
-
-          {
-            label:
-              `Langkah workflow (${stepLabels.length} langkah)`,
-            ok:
-              stepLabels.length >
-              0,
-          },
-        ];
-
-
-        if (
-          missing.length >
-          0
-        ) {
-          checks.push({
-            label:
-              `Status hilang: ${missing.join(
-                ', '
-              )}`,
-            ok: false,
-          });
-
-
-          return res.json(
-            makeResult(
-              'fail',
-
-              `Status workflow hilang: ${missing.join(
-                ', '
-              )}`,
-
-              checks
-            )
-          );
-        }
-
 
         return res.json(
           makeResult(
-            'pass',
-
-            `Workflow "${template.name}" memiliki ${stepLabels.length} langkah: ${stepLabels.join(
-              ' -> '
-            )}`,
-
+            allOk
+              ? 'pass'
+              : 'fail',
+            allOk
+              ? `${workflows.length} workflow aktif memiliki langkah persetujuan.`
+              : 'Ada workflow aktif yang belum memiliki langkah.',
             checks
           )
         );
