@@ -103,12 +103,13 @@ interface AuthContextValue {
   isSuperAdmin: boolean;
   userRoleNames: string[];
   signIn: (
-    email: string,
+    identifier: string,
     password: string
   ) => Promise<{
     error: string | null;
   }>;
   signUp: (
+    username: string,
     email: string,
     password: string,
     name: string
@@ -421,7 +422,7 @@ export function AuthProvider({
 
   const signIn =
     async (
-      email: string,
+      identifier: string,
       password: string
     ) => {
       try {
@@ -436,7 +437,7 @@ export function AuthProvider({
               },
               body:
                 JSON.stringify({
-                  email,
+                  identifier,
                   password,
                 }),
             }
@@ -539,6 +540,7 @@ export function AuthProvider({
 
   const signUp =
     async (
+      username: string,
       email: string,
       password: string,
       name: string
@@ -555,6 +557,7 @@ export function AuthProvider({
               },
               body:
                 JSON.stringify({
+                  username,
                   email,
                   password,
                   name,
