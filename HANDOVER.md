@@ -30,7 +30,7 @@ Disarankan: Pak Taufik atau pihak sekolah yang ditunjuk.
 
 Technical owner memegang:
 - akses repository GitHub;
-- akses project Supabase;
+- akses PostgreSQL sekolah dan backup database;
 - server production;
 - domain/DNS;
 - environment variables production;
@@ -65,8 +65,8 @@ Urutan pengecekan:
 2. Coba dari browser/perangkat lain.
 3. Buka System Testing.
 4. Jika seluruh API gagal, technical owner mengecek backend/server.
-5. Jika login gagal tetapi backend sehat, cek Supabase Auth.
-6. Jika data gagal dimuat, cek PostgreSQL/Supabase.
+5. Jika login gagal tetapi backend sehat, cek auth lokal PostgreSQL (`app_users`/`app_sessions`) dan konfigurasi SMTP bila masalahnya reset password.
+6. Jika data gagal dimuat, cek PostgreSQL dan backend Node.
 7. Jika upload gagal, cek Google Drive Apps Script.
 8. Jika hanya satu fitur gagal, catat endpoint/error dari browser console dan serahkan ke technical owner.
 
@@ -75,7 +75,7 @@ Urutan pengecekan:
 Technical owner wajib memastikan:
 - minimal dua akun sekolah memiliki akses administrasi yang diperlukan;
 - repository tidak hanya dimiliki akun pribadi siswa;
-- Supabase dapat diakses pihak sekolah;
+- PostgreSQL sekolah dan backup dapat diakses technical owner;
 - folder Drive/Apps Script dapat diakses pihak sekolah;
 - domain dan server memiliki dokumentasi credential recovery;
 - backup database terbaru sudah dibuat;
