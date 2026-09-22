@@ -5,7 +5,7 @@ import {
   useMemo,
 } from 'react';
 
-import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/appSession';
 import { cn } from '../../utils/cn';
 import { showToast } from '../../components/Toast';
 
@@ -143,20 +143,8 @@ function formatDate(
 }
 
 async function getAccessToken() {
-  const {
-    data,
-    error,
-  } =
-    await supabase.auth.getSession();
-
-  if (error) {
-    throw new Error(
-      error.message
-    );
-  }
-
   const token =
-    data.session?.access_token;
+    getSessionToken();
 
   if (!token) {
     throw new Error(
