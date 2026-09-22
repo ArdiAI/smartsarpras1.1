@@ -347,8 +347,8 @@ export default function App() {
     <Routes>
 
       {/* =====================================================
-          ADMIN LOGIN KHUSUS
-          USER PUBLIK TIDAK MEMERLUKAN LOGIN
+          LOGIN / REGISTER
+          SEMUA USER WAJIB LOGIN
           ===================================================== */}
 
       <Route
@@ -358,12 +358,7 @@ export default function App() {
 
       <Route
         path="/auth"
-        element={
-          <Navigate
-            to="/"
-            replace
-          />
-        }
+        element={<AuthRoute />}
       />
 
       <Route
@@ -382,8 +377,8 @@ export default function App() {
       />
 
       {/* =====================================================
-          ROUTE PUBLIK + ADMIN
-          ROUTE PUBLIK LANGSUNG DIAKSES TANPA LOGIN
+          ROUTE USER + ADMIN
+          SEMUA ROUTE DI BAWAH INI WAJIB LOGIN
           ===================================================== */}
 
       <Route
