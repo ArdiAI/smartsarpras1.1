@@ -47,6 +47,10 @@ interface AdminUser {
     | string
     | null;
 
+  username:
+    | string
+    | null;
+
   email: string;
 
   name:
@@ -419,6 +423,15 @@ export default function UserManagementPage() {
 
 
         return (
+          (
+            user.username ??
+            ''
+          )
+            .toLowerCase()
+            .includes(
+              query
+            ) ||
+
           (
             user.email ??
             ''
@@ -1178,6 +1191,10 @@ export default function UserManagementPage() {
                 </th>
 
                 <th className="px-4 py-3 font-semibold">
+                  Username
+                </th>
+
+                <th className="px-4 py-3 font-semibold">
                   Nama
                 </th>
 
@@ -1254,6 +1271,13 @@ export default function UserManagementPage() {
 
                     </td>
 
+
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                      {
+                        user.username ??
+                        '-'
+                      }
+                    </td>
 
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
                       {
