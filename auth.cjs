@@ -284,7 +284,7 @@ async function attachOptionalAdminContext(
 
 // =====================================================
 // REQUIRE AUTH
-// User biasa yang sudah login Supabase
+// User yang sudah login melalui auth lokal PostgreSQL
 // =====================================================
 
 async function requireAuth(
