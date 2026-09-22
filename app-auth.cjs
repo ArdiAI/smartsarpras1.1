@@ -132,6 +132,7 @@ async function resolveSession(token) {
         SELECT
           s.id AS session_id,
           s.user_id,
+          u.username,
           u.email,
           u.name
         FROM public.app_sessions s
@@ -161,6 +162,8 @@ async function resolveSession(token) {
     user: {
       id:
         row.user_id,
+      username:
+        row.username,
       email:
         row.email,
       name:
