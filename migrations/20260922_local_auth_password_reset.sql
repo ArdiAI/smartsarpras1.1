@@ -64,8 +64,8 @@ CREATE INDEX IF NOT EXISTS app_password_reset_tokens_user_active_idx
 UPDATE public.admin_users au
 SET user_id = app.id
 FROM public.app_users app
-WHERE au.user_id IS NULL
-  AND lower(trim(au.email)) = lower(trim(app.email));
+WHERE lower(trim(au.email)) = lower(trim(app.email))
+  AND au.user_id IS DISTINCT FROM app.id;
 
 -- Any sessions present before this migration are revoked once.
 UPDATE public.app_sessions
