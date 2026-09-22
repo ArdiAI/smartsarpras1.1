@@ -10,8 +10,7 @@ import Footer from '../components/Footer';
 import { cn } from '../utils/cn';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:3001';
+  (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 export default function ProposalPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
