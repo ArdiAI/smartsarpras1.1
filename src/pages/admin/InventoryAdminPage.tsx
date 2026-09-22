@@ -21,8 +21,7 @@ import {
 const IMG_BUCKET = 'facility-images';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  'http://localhost:3001';
+  (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 const MAX_IMG_SIZE =
   10 * 1024 * 1024;
