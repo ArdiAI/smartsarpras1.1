@@ -11,7 +11,7 @@
     "check:backend": "node --check index.cjs",
     "check:auth": "node --check auth.cjs",
     "check:db": "node --check db.cjs",
-    "check": "npm run check:backend && npm run check:auth && npm run check:app-auth && npm run check:password-reset && npm run check:db && npm run check:sync-data && npm run build",
+    "check": "npm run check:backend && npm run check:auth && npm run check:app-auth && npm run check:password-reset && npm run check:db && npm run check:sync-data && npm run check:sync-agenda-kavling-rest && npm run build",
     "backup:db": "node scripts/backup-db.cjs",
     "restore:db": "node scripts/restore-db.cjs",
     "acceptance": "node scripts/acceptance-test.cjs",
@@ -23,7 +23,9 @@
     "sync:latest-data": "npm run backup:db && node scripts/sync-latest-data.cjs",
     "check:sync-data": "node --check scripts/sync-latest-data.cjs",
     "sync:agenda-kavling:check": "node scripts/sync-latest-data.cjs --dry-run --tables=agendas,agenda_attachments,kavling",
-    "sync:agenda-kavling": "npm run backup:db && node scripts/sync-latest-data.cjs --tables=agendas,agenda_attachments,kavling"
+    "sync:agenda-kavling": "npm run backup:db && node scripts/sync-latest-data.cjs --tables=agendas,agenda_attachments,kavling",
+    "sync:agenda-kavling:rest": "node scripts/sync-agenda-kavling-rest.cjs --yes",
+    "check:sync-agenda-kavling-rest": "node --check scripts/sync-agenda-kavling-rest.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
