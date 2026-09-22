@@ -375,20 +375,25 @@ function stableNormalize(value) {
 }
 
 function digestRows(rows, columns) {
-  const hash = crypto.createHash('sha256');
-
-  for (const row of rows) {
+  const rowDigests = rows.map((row) => {
     const compactRow = {};
 
     for (const column of columns) {
       compactRow[column] = stableNormalize(row[column]);
     }
 
-    hash.update(JSON.stringify(compactRow));
-    hash.update('\n');
-  }
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify(compactRow))
+      .digest('hex');
+  });
 
-  return hash.digest('hex');
+  rowDigests.sort();
+
+  return crypto
+    .createHash('sha256')
+    .update(rowDigests.join('\n'))
+    .digest('hex');
 }
 
 async function getPrimaryKeyColumns(client, tableName) {
@@ -417,24 +422,23 @@ async function getPrimaryKeyColumns(client, tableName) {
   return result.rows.map((row) => row.column_name);
 }
 
-function buildOrderBy(primaryKeyColumns, columns) {
-  const orderColumns =
-    primaryKeyColumns.length > 0
-      ? primaryKeyColumns
-      : columns;
+function buildOrderBy(primaryKeyColumns) {
+  if (primaryKeyColumns.length === 0) {
+    return '';
+  }
 
-  return orderColumns
+  return ` ORDER BY ${primaryKeyColumns
     .map(quoteIdent)
-    .join(', ');
+    .join(', ')}`;
 }
 
-async function loadRows(client, tableName, columns, orderBy) {
+async function loadRows(client, tableName, columns, orderByClause) {
   const selectColumns = columns
     .map(quoteIdent)
     .join(', ');
 
   const result = await client.query(
-    `SELECT ${selectColumns} FROM public.${quoteIdent(tableName)} ORDER BY ${orderBy}`
+    `SELECT ${selectColumns} FROM public.${quoteIdent(tableName)}${orderByClause}`
   );
 
   return result.rows;
@@ -661,8 +665,7 @@ async function main() {
     for (const tableName of orderedTables) {
       const meta = tableMeta.get(tableName);
       const orderBy = buildOrderBy(
-        meta.primaryKeyColumns,
-        meta.columns
+        meta.primaryKeyColumns
       );
 
       const sourceRowsRaw = await loadRows(
