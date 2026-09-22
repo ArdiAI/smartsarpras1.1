@@ -20,7 +20,7 @@ import {
   type TimelineEvent,
   type EventColorCategory,
 } from '../../lib/timeline';
-import { supabase } from '../../lib/supabase';
+import { getSessionToken } from '../../lib/appSession';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
@@ -238,22 +238,10 @@ export default function TimelineAdminPage() {
     );
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } =
-        await supabase.auth
-          .getSession();
+      const token =
+        getSessionToken();
 
-      if (sessionError) {
-        throw new Error(
-          sessionError.message
-        );
-      }
-
-      if (
-        !session?.access_token
-      ) {
+      if (!token) {
         throw new Error(
           'Sesi login tidak ditemukan. Silakan login kembali.'
         );
@@ -269,7 +257,7 @@ export default function TimelineAdminPage() {
             method: 'PATCH',
             headers: {
               Authorization:
-                `Bearer ${session.access_token}`,
+                `Bearer ${token}`,
               'Content-Type':
                 'application/json',
             },
@@ -345,13 +333,14 @@ export default function TimelineAdminPage() {
     setDeletingId(event.id);
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const token =
+        getSessionToken();
 
-      if (sessionError) throw new Error(sessionError.message);
-      if (!session?.access_token) throw new Error('Sesi login tidak ditemukan. Silakan login kembali.');
+      if (!token) {
+        throw new Error(
+          'Sesi login tidak ditemukan. Silakan login kembali.'
+        );
+      }
 
       const path =
         event.jenis === 'Agenda'
@@ -361,7 +350,7 @@ export default function TimelineAdminPage() {
       const response = await fetch(`${API_BASE_URL}${path}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
