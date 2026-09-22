@@ -23,6 +23,21 @@ const DRY_RUN =
     .trim()
     .toUpperCase() === 'YES';
 
+const tableArg = process.argv.find(
+  (value) => value.startsWith('--tables=')
+);
+
+const ONLY_TABLES = new Set(
+  String(
+    tableArg
+      ? tableArg.slice('--tables='.length)
+      : process.env.SYNC_ONLY_TABLES || ''
+  )
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
+
 function envBool(name, fallback = false) {
   const raw = String(process.env[name] ?? '').trim().toLowerCase();
 
@@ -562,9 +577,32 @@ async function main() {
     ]);
 
     const destinationSet = new Set(destinationTables);
-    const sourceSyncTables = sourceTables.filter(
-      (table) => !PRESERVED_TABLES.has(table)
+
+    const requestedMissingSource = [...ONLY_TABLES].filter(
+      (table) => !sourceTables.includes(table)
     );
+
+    if (requestedMissingSource.length > 0) {
+      throw new Error(
+        'Tabel yang diminta tidak ada di database sumber: ' +
+        requestedMissingSource.join(', ')
+      );
+    }
+
+    const sourceSyncTables = sourceTables.filter(
+      (table) =>
+        !PRESERVED_TABLES.has(table) &&
+        (
+          ONLY_TABLES.size === 0 ||
+          ONLY_TABLES.has(table)
+        )
+    );
+
+    if (sourceSyncTables.length === 0) {
+      throw new Error(
+        'Tidak ada tabel yang dipilih untuk sinkronisasi.'
+      );
+    }
 
     const missingTables = sourceSyncTables.filter(
       (table) => !destinationSet.has(table)
@@ -627,6 +665,12 @@ async function main() {
     console.log(
       `Akan menyinkronkan ${orderedTables.length} tabel public.`
     );
+
+    if (ONLY_TABLES.size > 0) {
+      console.log(
+        `Mode tabel terpilih: ${orderedTables.join(', ')}`
+      );
+    }
 
     console.log(
       `Dipertahankan lokal: ${[...PRESERVED_TABLES].sort().join(', ') || '(tidak ada)'}`
