@@ -13,8 +13,10 @@ import {
   Trash2,
   X,
   Loader2,
+  Upload,
 } from 'lucide-react';
 
+import { uploadFileToDrive } from '../../lib/upload';
 import { showToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
@@ -169,6 +171,18 @@ export default function TeamAdminPage() {
   const [
     submitting,
     setSubmitting,
+  ] =
+    useState(false);
+
+  const [
+    photoFile,
+    setPhotoFile,
+  ] =
+    useState<File | null>(null);
+
+  const [
+    uploadingPhoto,
+    setUploadingPhoto,
   ] =
     useState(false);
 
@@ -358,6 +372,10 @@ export default function TeamAdminPage() {
           ),
       });
 
+      setPhotoFile(
+        null
+      );
+
 
       setModalOpen(
         true
@@ -372,6 +390,11 @@ export default function TeamAdminPage() {
     ) => {
       setEditingId(
         member.id
+      );
+
+
+      setPhotoFile(
+        null
       );
 
 
@@ -460,6 +483,21 @@ export default function TeamAdminPage() {
     };
 
 
+  const handlePhotoChange =
+    (
+      event:
+        ChangeEvent<HTMLInputElement>
+    ) => {
+      const selectedFile =
+        event.target.files?.[0] ??
+        null;
+
+      setPhotoFile(
+        selectedFile
+      );
+    };
+
+
   // =====================================================
   // CREATE / UPDATE
   // =====================================================
@@ -498,7 +536,34 @@ export default function TeamAdminPage() {
         );
 
 
-      const payload = {
+      let photoUrl =
+        form.photo_url.trim() ||
+        null;
+
+      try {
+        if (photoFile) {
+          setUploadingPhoto(
+            true
+          );
+
+          const uploaded =
+            await uploadFileToDrive(
+              photoFile,
+              `tim-pengelola-${Date.now()}-${photoFile.name}`,
+              'tim_pengelola'
+            );
+
+          if (!uploaded?.url) {
+            throw new Error(
+              'Gagal upload foto tim ke Google Drive'
+            );
+          }
+
+          photoUrl =
+            uploaded.url;
+        }
+
+        const payload = {
         name:
           cleanName,
 
@@ -511,8 +576,7 @@ export default function TeamAdminPage() {
           null,
 
         photo_url:
-          form.photo_url.trim() ||
-          null,
+          photoUrl,
 
         description:
           form.description.trim() ||
@@ -538,7 +602,6 @@ export default function TeamAdminPage() {
       };
 
 
-      try {
         if (
           editingId
         ) {
@@ -620,6 +683,10 @@ export default function TeamAdminPage() {
           false
         );
 
+        setPhotoFile(
+          null
+        );
+
 
         await fetchMembers();
       } catch (error) {
@@ -631,6 +698,10 @@ export default function TeamAdminPage() {
           'error'
         );
       } finally {
+        setUploadingPhoto(
+          false
+        );
+
         setSubmitting(
           false
         );
@@ -1119,23 +1190,31 @@ export default function TeamAdminPage() {
               <div>
 
                 <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  URL Foto
+                  Foto Anggota
                 </label>
 
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-500 hover:border-brand-400 dark:border-slate-700 dark:text-slate-400">
+                  <Upload className="h-4 w-4" />
 
-                <input
-                  name="photo_url"
+                  {photoFile
+                    ? photoFile.name
+                    : 'Pilih foto untuk upload ke Google Drive'}
 
-                  value={
-                    form.photo_url
-                  }
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={
+                      handlePhotoChange
+                    }
+                  />
+                </label>
 
-                  onChange={
-                    handleChange
-                  }
-
-                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
+                {form.photo_url && !photoFile ? (
+                  <p className="mt-1 truncate text-xs text-slate-400">
+                    Foto tersimpan: {form.photo_url}
+                  </p>
+                ) : null}
 
               </div>
 
@@ -1292,19 +1371,22 @@ export default function TeamAdminPage() {
                   type="submit"
 
                   disabled={
-                    submitting
+                    submitting ||
+                    uploadingPhoto
                   }
 
                   className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                 >
-                  {submitting ? (
+                  {submitting || uploadingPhoto ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
 
 
-                  {submitting
-                    ? 'Menyimpan...'
-                    : 'Simpan'}
+                  {uploadingPhoto
+                    ? 'Upload foto...'
+                    : submitting
+                      ? 'Menyimpan...'
+                      : 'Simpan'}
                 </button>
 
               </div>
