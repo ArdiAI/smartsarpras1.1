@@ -115,3 +115,81 @@ Target production:
 
 Database:
 `smart_sarpras`
+
+
+## Sinkronisasi seluruh data terbaru
+
+Setelah schema/auth lokal siap, data operasional terbaru dapat dimirror langsung dari database sumber ke PostgreSQL sekolah.
+
+### 1. Isi koneksi sumber di `.env`
+
+Gunakan salah satu bentuk berikut:
+
+```env
+SOURCE_DATABASE_URL=postgresql://...
+```
+
+atau:
+
+```env
+SOURCE_PGHOST=...
+SOURCE_PGPORT=5432
+SOURCE_PGUSER=...
+SOURCE_PGPASSWORD=...
+SOURCE_PGDATABASE=...
+SOURCE_PGSSL=true
+```
+
+Jangan commit credential tersebut.
+
+### 2. Preflight tanpa mengubah data
+
+```bash
+npm run sync:latest-data:check
+```
+
+Perintah ini memeriksa koneksi, tabel, kolom, tipe data, dependency foreign key, dan menampilkan jumlah row sumber. Database sekolah belum diubah.
+
+### 3. Jalankan full mirror
+
+Set:
+
+```env
+CONFIRM_FULL_DATA_SYNC=YES
+```
+
+Kemudian:
+
+```bash
+npm run sync:latest-data
+```
+
+Perintah tersebut otomatis menjalankan backup PostgreSQL sekolah lebih dulu melalui `pg_dump`. Jika backup gagal, sync tidak dijalankan.
+
+Sync dilakukan dalam satu transaction:
+
+```text
+backup tujuan
+   ↓
+schema preflight
+   ↓
+TRUNCATE tabel operasional tujuan
+   ↓
+copy sumber → tujuan sesuai dependency FK
+   ↓
+count verification
+   ↓
+SHA-256 verification
+   ↓
+COMMIT
+```
+
+Jika satu tabel gagal atau checksum berbeda, seluruh perubahan tujuan di-`ROLLBACK`.
+
+### Data yang ikut
+
+Termasuk agenda, lampiran agenda, kavling, inventaris, fasilitas, master kelas, master ekstrakurikuler, aspirasi, pengumuman, laporan kerusakan, workflow, role/permission, konfigurasi sistem, log aktivitas, dan tabel public lainnya.
+
+Auth lokal `app_users` + `app_sessions` sengaja dipertahankan agar sistem daftar/login baru tidak tertimpa.
+
+Acuan jumlah data sumber saat handoff ada di `LATEST_DATA_SOURCE.md`.
