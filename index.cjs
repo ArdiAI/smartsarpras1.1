@@ -439,8 +439,7 @@ app.post(
           SET
             user_id = $1,
             name = COALESCE(NULLIF(name, ''), $2)
-          WHERE user_id IS NULL
-            AND lower(email) = $3
+          WHERE lower(email) = $3
         `,
         [
           user.id,
