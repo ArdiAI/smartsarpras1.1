@@ -35,7 +35,10 @@ async function main() {
        FROM public.admin_users
        WHERE is_active = true
          AND user_id IS NOT NULL)
-        AS linked_admins
+        AS linked_admins,
+      (SELECT COUNT(*)::int
+       FROM public.borrowing_guide_steps)
+        AS borrowing_guide_steps
   `);
 
   console.log(
