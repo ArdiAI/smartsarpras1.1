@@ -54,9 +54,82 @@ const outputFile =
     `smart-sarpras-${stamp}.dump`
   );
 
+function resolvePgDumpBinary() {
+  const configured =
+    String(
+      process.env.PG_DUMP_BIN ||
+      ''
+    ).trim();
+
+  if (configured) {
+    return configured;
+  }
+
+  if (process.platform === 'win32') {
+    const roots = [
+      process.env.ProgramFiles,
+      process.env['ProgramFiles(x86)'],
+      'C:\\Program Files',
+    ]
+      .filter(Boolean)
+      .map((root) =>
+        path.join(
+          root,
+          'PostgreSQL'
+        )
+      );
+
+    for (const root of roots) {
+      if (!fs.existsSync(root)) {
+        continue;
+      }
+
+      const versions =
+        fs.readdirSync(
+          root,
+          {
+            withFileTypes: true,
+          }
+        )
+          .filter(
+            (entry) =>
+              entry.isDirectory()
+          )
+          .map(
+            (entry) =>
+              entry.name
+          )
+          .sort(
+            (a, b) =>
+              Number(b) -
+              Number(a)
+          );
+
+      for (const version of versions) {
+        const candidate =
+          path.join(
+            root,
+            version,
+            'bin',
+            'pg_dump.exe'
+          );
+
+        if (
+          fs.existsSync(
+            candidate
+          )
+        ) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  return 'pg_dump';
+}
+
 const binary =
-  process.env.PG_DUMP_BIN ||
-  'pg_dump';
+  resolvePgDumpBinary();
 
 const args = [
   '--host',
@@ -81,6 +154,10 @@ console.log(
   `Membuat backup ke: ${outputFile}`
 );
 
+console.log(
+  `pg_dump: ${binary}`
+);
+
 const result =
   spawnSync(
     binary,
@@ -100,6 +177,16 @@ if (result.error) {
     'Gagal menjalankan pg_dump:',
     result.error.message
   );
+
+  if (
+    result.error.code ===
+    'ENOENT'
+  ) {
+    console.error(
+      'pg_dump.exe tidak ditemukan. Isi PG_DUMP_BIN di .env dengan path lengkap ke pg_dump.exe.'
+    );
+  }
+
   process.exit(1);
 }
 
