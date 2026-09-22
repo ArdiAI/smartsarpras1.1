@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
 import { FileText, Loader2, Search, X, Save, AlertTriangle, Trash2, FileSpreadsheet } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : ''));
 
 interface DamageReport {
   id: string;
