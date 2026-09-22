@@ -16280,6 +16280,46 @@ app.patch(
   }
 );
 
+async function ensureBorrowingGuideSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.borrowing_guide_steps (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      title text,
+      description text,
+      image_url text,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by uuid,
+      updated_by uuid,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      image_file_id text
+    );
+
+    ALTER TABLE public.borrowing_guide_steps
+      ADD COLUMN IF NOT EXISTS title text,
+      ADD COLUMN IF NOT EXISTS description text,
+      ADD COLUMN IF NOT EXISTS image_url text,
+      ADD COLUMN IF NOT EXISTS sort_order integer DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true,
+      ADD COLUMN IF NOT EXISTS created_by uuid,
+      ADD COLUMN IF NOT EXISTS updated_by uuid,
+      ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS image_file_id text;
+
+    UPDATE public.borrowing_guide_steps
+    SET
+      sort_order = COALESCE(sort_order, 0),
+      is_active = COALESCE(is_active, true),
+      created_at = COALESCE(created_at, now()),
+      updated_at = COALESCE(updated_at, now());
+
+    CREATE INDEX IF NOT EXISTS borrowing_guide_steps_public_order_idx
+      ON public.borrowing_guide_steps (is_active, sort_order, created_at);
+  `);
+}
+
 // =====================================================
 // BORROWING GUIDE
 // =====================================================
@@ -16677,17 +16717,31 @@ app.delete(
 // START SERVER
 // =====================================================
 
-app.listen(PORT, () => {
-  console.log('');
-  console.log('SMART SARPRAS BACKEND AKTIF');
-  console.log(`http://localhost:${PORT}`);
-  console.log(
-    `http://localhost:${PORT}/api/health`
-  );
-  console.log(
-    `http://localhost:${PORT}/api/db-summary`
-  );
-  console.log(
-    `http://localhost:${PORT}/api/admin/me`
-  );
-});
+async function startServer() {
+  try {
+    await ensureBorrowingGuideSchema();
+
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('SMART SARPRAS BACKEND AKTIF');
+      console.log(`http://localhost:${PORT}`);
+      console.log(
+        `http://localhost:${PORT}/api/health`
+      );
+      console.log(
+        `http://localhost:${PORT}/api/db-summary`
+      );
+      console.log(
+        `http://localhost:${PORT}/api/admin/me`
+      );
+    });
+  } catch (error) {
+    console.error(
+      'Backend gagal start karena schema wajib tidak siap:',
+      error?.message || error
+    );
+    process.exitCode = 1;
+  }
+}
+
+startServer();
