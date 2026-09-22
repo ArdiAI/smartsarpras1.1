@@ -9,6 +9,7 @@ import {
   CalendarRange,
   Info,
   LogOut,
+  LogIn,
   LayoutDashboard,
   Menu,
   X,
@@ -107,7 +108,21 @@ export default function Navbar() {
 
   const renderAuthButtons = (mobile = false) => {
     if (!user) {
-      return null;
+      return (
+        <button
+          onClick={() => {
+            setOpen(false);
+            navigate('/admin/login');
+          }}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800',
+            mobile && 'w-full justify-center'
+          )}
+        >
+          <LogIn className="h-4 w-4" />
+          Masuk Admin
+        </button>
+      );
     }
 
     return (
