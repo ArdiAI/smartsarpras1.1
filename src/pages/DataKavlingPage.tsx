@@ -174,9 +174,21 @@ export default function DataKavlingPage() {
     setLoading(true);
 
     try {
+      if (!session?.access_token) {
+        throw new Error(
+          'Session login tidak ditemukan'
+        );
+      }
+
       const response =
         await fetch(
-          `${API_BASE_URL}/api/kavling`
+          `${API_BASE_URL}/api/kavling`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${session.access_token}`,
+            },
+          }
         );
 
       const result =
@@ -212,8 +224,12 @@ export default function DataKavlingPage() {
   };
 
   useEffect(() => {
+    if (!session?.access_token) {
+      return;
+    }
+
     void loadData();
-  }, []);
+  }, [session?.access_token]);
 
   // =========================================================
   // FILTER OPTIONS
