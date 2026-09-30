@@ -67,7 +67,31 @@ const allowedOrigins = [
   ...extraAllowedOrigins,
 ];
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Gambar aplikasi disimpan di Google Drive. Default CSP Helmet
+    // hanya mengizinkan img-src dari origin sendiri + data:, sehingga
+    // thumbnail Google Drive dapat diblokir browser di production.
+    contentSecurityPolicy: {
+      directives: {
+        'img-src': [
+          "'self'",
+          'data:',
+          'blob:',
+          'https://drive.google.com',
+          'https://drive.usercontent.google.com',
+          'https://*.googleusercontent.com',
+        ],
+      },
+    },
+
+    // Bila backend/reverse proxy ikut menyajikan resource, izinkan
+    // resource tersebut dipakai lintas origin yang memang diperlukan.
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
+  })
+);
 
 app.use(
   cors({
