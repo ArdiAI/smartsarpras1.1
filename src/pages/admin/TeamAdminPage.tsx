@@ -1,3 +1,4 @@
+import RemoteImage from '../../components/RemoteImage';
 import {
   useCallback,
   useEffect,
@@ -914,7 +915,7 @@ export default function TeamAdminPage() {
                 <div className="mb-3 flex items-start gap-3">
 
                   {member.photo_url ? (
-                    <img
+                    <RemoteImage
                       src={
                         member.photo_url
                       }
@@ -925,6 +926,7 @@ export default function TeamAdminPage() {
                       }
 
                       className="h-16 w-16 rounded-full object-cover"
+                      fallbackClassName="flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-500 dark:bg-brand-900/40 dark:text-brand-300"
                     />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/40">
