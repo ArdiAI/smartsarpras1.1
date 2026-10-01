@@ -1,3 +1,4 @@
+import RemoteImage from '../components/RemoteImage';
 import {
   useEffect,
   useState,
@@ -682,7 +683,7 @@ export default function TeamPage() {
                       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600">
 
                         {member.photo_url ? (
-                          <img
+                          <RemoteImage
                             src={
                               member.photo_url
                             }
@@ -692,6 +693,7 @@ export default function TeamPage() {
                             }
 
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            fallbackClassName="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20"
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20">
@@ -840,7 +842,7 @@ export default function TeamPage() {
             <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600">
 
               {selectedMember.photo_url ? (
-                <img
+                <RemoteImage
                   src={
                     selectedMember.photo_url
                   }
@@ -850,6 +852,7 @@ export default function TeamPage() {
                   }
 
                   className="h-full w-full object-cover"
+                  fallbackClassName="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
