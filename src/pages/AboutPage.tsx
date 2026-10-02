@@ -13,6 +13,7 @@ import {
 
 import { brand } from '../brand/config';
 import EmptyState from '../components/EmptyState';
+import RemoteImage from '../components/RemoteImage';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ??
@@ -280,7 +281,7 @@ export default function AboutPage() {
                 >
                   <div className="mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     {member.photo_url ? (
-                      <img
+                      <RemoteImage
                         src={
                           member.photo_url
                         }
@@ -288,6 +289,7 @@ export default function AboutPage() {
                           member.name
                         }
                         className="h-full w-full object-cover"
+                        fallbackClassName="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xl font-bold text-slate-400">
